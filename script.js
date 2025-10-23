@@ -5,9 +5,9 @@ let scanning = false;
 let qrData = '';
 let stream = null;
 
-// Configuración para Google Form (reemplaza con tus valores exactos)
-const googleFormUrl = 'https://docs.google.com/forms/d/e/1FAIpQLSd53K1i0kxun-7FvG39My4-cmX86a3C1qQE5scna7jCtca/formResponse'; // URL de acción extraída de la imagen
-const googleFieldName = 'entry.123456789'; // Reemplaza con el valor real (ej: entry.2005620554) obtenido inspeccionando el input
+// Configuración para Google Form (valores extraídos del HTML proporcionado)
+const googleFormUrl = 'https://docs.google.com/forms/d/e/1FAIpQLSd53K1i0kxun-7FvG39My4-cmX86a3C1qQE5scna7jCtca/formResponse';
+const googleFieldName = 'entry.570948853';
 
 document.getElementById('startScan').addEventListener('click', startScanning);
 document.getElementById('stopScan').addEventListener('click', stopScanning);
