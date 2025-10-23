@@ -93,41 +93,23 @@ function sendToGoogleForm() {
         return;
     }
 
-    // Crea un iframe oculto para el envío
-    const iframe = document.createElement('iframe');
-    iframe.style.display = 'none';
-    iframe.name = 'submitFrame';
-    document.body.appendChild(iframe);
+    // Reemplaza esta URL con la que obtuviste en el paso 3
+    const scriptUrl = 'https://script.google.com/macros/s/AKfycby6xgh20D0UOHgTRJQhZUC0gej0JtNy6XEQRNcoJAs0C_gViDj6ug0lrhA3iY9Orv7w/exec';
 
-    // Crea un formulario oculto con la URL del viewform (no formResponse directamente)
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = 'https://docs.google.com/forms/d/e/1FAIpQLSd53K1i0kxun-7FvG39My4-cmX86a3C1qQE5scna7jCtca/viewform';  // Usa viewform para prellenar
-    form.target = 'submitFrame';
-    form.style.display = 'none';
+    const payload = `qrData=${encodeURIComponent(qrData)}`;
 
-    // Campo para los datos del QR
-    const input = document.createElement('input');
-    input.type = 'hidden';
-    input.name = 'entry.570948853';
-    input.value = qrData;
-    form.appendChild(input);
-
-    // Headers simulados (Google los necesita para envíos válidos)
-    const submitButton = document.createElement('input');
-    submitButton.type = 'submit';
-    submitButton.style.display = 'none';
-    form.appendChild(submitButton);
-
-    document.body.appendChild(form);
-    form.submit();
-
-    // Limpieza y feedback
-    setTimeout(() => {
-        document.body.removeChild(form);
-        document.body.removeChild(iframe);
-        setStatus('Datos enviados vía iframe. Verifica las respuestas en el formulario (puede tardar 10-30 seg).');
-    }, 2000);
+    fetch(scriptUrl, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: payload
+    }).then(() => {
+        setStatus('Datos enviados a Google Sheet. Revisa la hoja "Registro QR".');
+    }).catch(err => {
+        setStatus('Error de red: ' + err.message, true);
+    });
 }
 
 function saveToCSV() {
@@ -150,4 +132,5 @@ function saveToCSV() {
     document.body.removeChild(link);
     setStatus('CSV descargado. Ábrelo en Excel.');
 }
+
 
