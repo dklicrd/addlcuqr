@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Lector QR Móvil</title>
+    <script src="https://unpkg.com/html5-qrcode/minified/html5-qrcode.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            width: 100%;
+            max-width: 500px;
+            overflow: hidden;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #4361ee, #3a0ca3);
+            color: white;
+            padding: 25px 20px;
+            text-align: center;
+        }
+        
+        h1 {
+            font-size: 1.5rem;
+            margin-bottom: 8px;
+        }
+        
+        .subtitle {
+            opacity: 0.9;
+            font-size: 0.9rem;
+        }
+        
+        .main-content {
+            padding: 20px;
+        }
+        
+        .permission-help {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .permission-help h3 {
+            color: #856404;
+            margin-bottom: 8px;
+            font-size: 1rem;
+        }
+        
+        .permission-help p {
+            font-size: 0.85rem;
+            color: #856404;
+            margin-bottom: 5px;
+        }
+        
+        .scanner-section {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        #reader {
+            width: 100%;
+            height: 300px;
+            margin: 0 auto 20px;
+            border-radius: 10px;
+            overflow: hidden;
+            background: #000;
+            position: relative;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        button {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        button:active {
+            transform: scale(0.95);
+        }
+        
+        #start-btn {
+            background: #4361ee;
+            color: white;
+        }
+        
+        #stop-btn {
+            background: #f72585;
+            color: white;
+        }
+        
+        #save-btn {
+            background: #4cc9f0;
+            color: white;
+        }
+        
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        #result {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            min-height: 80px;
+            border-left: 4px solid #4361ee;
+        }
+        
+        .status {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            text-align: center;
+            font-weight: 500;
+        }
+        
+        .success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #a7f3d0;
+        }
+        
+        .error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fecaca;
+        }
+        
+        .info {
+            background: #dbeafe;
+            color: #1e40af;
+            border: 1px solid #93c5fd;
+        }
+        
+        .history-section {
+            margin-top: 20px;
+        }
+        
+        .history-item {
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .history-item:last-child {
+            border-bottom: none;
+        }
+        
+        .timestamp {
+            font-size: 0.75rem;
+            color: #666;
+        }
+        
+        footer {
+            text-align: center;
+            padding: 15px;
+            background: #f8f9fa;
+            color: #666;
+            font-size: 0.8rem;
+            border-top: 1px solid #dee2e6;
+        }
+        
+        .camera-selector {
+            margin-bottom: 15px;
+        }
+        
+        select {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            background: white;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Lector de Códigos QR</h1>
+            <p class="subtitle">Escanea y almacena en Google Sheets</p>
+        </header>
+        
+        <div class="main-content">
+            <div class="permission-help">
+                <h3>🔒 Permisos de Cámara Requeridos</h3>
+                <p>• Esta app necesita acceso a tu cámara</p>
+                <p>• Toca "Permitir" cuando tu navegador lo solicite</p>
+                <p>• Usa la cámara trasera para mejor resultado</p>
+            </div>
+            
+            <div class="scanner-section">
+                <div class="camera-selector">
+                    <select id="camera-select">
+                        <option value="">Buscando cámaras...</option>
+                    </select>
+                </div>
+                
+                <div id="reader"></div>
+                
+                <div class="controls">
+                    <button id="start-btn">
+                        <span>▶️</span> Iniciar
+                    </button>
+                    <button id="stop-btn" disabled>
+                        <span>⏹️</span> Detener
+                    </button>
+                    <button id="save-btn" disabled>
+                        <span>💾</span> Guardar
+                    </button>
+                </div>
+                
+                <div id="result">
+                    <p>El código QR escaneado aparecerá aquí...</p>
+                </div>
+                
+                <div id="status" class="status info">
+                    Presiona "Iniciar" para comenzar
+                </div>
+            </div>
+            
+            <div class="history-section">
+                <h3>Historial de Escaneos</h3>
+                <div id="history"></div>
+            </div>
+        </div>
+        
+        <footer>
+            <p>Aplicación optimizada para móviles | © 2023</p>
+        </footer>
+    </div>
+
+    <script>
+        // Elementos DOM
+        const startBtn = document.getElementById('start-btn');
+        const stopBtn = document.getElementById('stop-btn');
+        const saveBtn = document.getElementById('save-btn');
+        const resultDiv = document.getElementById('result');
+        const statusDiv = document.getElementById('status');
+        const historyDiv = document.getElementById('history');
+        const cameraSelect = document.getElementById('camera-select');
+        
+        // Variables globales
+        let html5QrCode = null;
+        let currentCameraId = null;
+        let scanHistory = JSON.parse(localStorage.getItem('qrHistory')) || [];
+        
+        // Inicializar la aplicación
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeApp();
+        });
+        
+        async function initializeApp() {
+            try {
+                // Inicializar el escáner QR
+                html5QrCode = new Html5Qrcode("reader");
+                
+                // Cargar cámaras disponibles
+                await loadCameras();
+                
+                // Configurar event listeners
+                startBtn.addEventListener('click', startScanner);
+                stopBtn.addEventListener('click', stopScanner);
+                saveBtn.addEventListener('click', saveToSheets);
+                cameraSelect.addEventListener('change', onCameraChange);
+                
+                updateHistoryDisplay();
+                
+            } catch (error) {
+                showStatus('Error al inicializar: ' + error.message, 'error');
+            }
+        }
+        
+        async function loadCameras() {
+            try {
+                showStatus('Buscando cámaras disponibles...', 'info');
+                
+                // Forzar permisos de cámara primero
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                
+                // Detener el stream inmediatamente después de obtener permisos
+                stream.getTracks().forEach(track => track.stop());
+                
+                // Ahora listar las cámaras
+                const devices = await Html5Qrcode.getCameras();
+                
+                if (devices && devices.length > 0) {
+                    cameraSelect.innerHTML = '<option value="">Selecciona una cámara</option>';
+                    
+                    devices.forEach(device => {
+                        const option = document.createElement('option');
+                        option.value = device.id;
+                        option.text = device.label || `Cámara ${cameraSelect.length + 1}`;
+                        cameraSelect.appendChild(option);
+                    });
+                    
+                    // En móviles, intentar seleccionar la cámara trasera automáticamente
+                    if (isMobile()) {
+                        const rearCamera = findRearCamera(devices);
+                        if (rearCamera) {
+                            cameraSelect.value = rearCamera.id;
+                        }
+                    }
+                    
+                    showStatus(`${devices.length} cámara(s) encontrada(s)`, 'success');
+                    startBtn.disabled = false;
+                    
+                } else {
+                    showStatus('No se encontraron cámaras', 'error');
+                }
+                
+            } catch (error) {
+                console.error('Error loading cameras:', error);
+                
+                if (error.name === 'NotAllowedError') {
+                    showStatus('Permiso de cámara denegado. Por favor, permite el acceso a la cámara en la configuración de tu navegador.', 'error');
+                } else if (error.name === 'NotFoundError') {
+                    showStatus('No se encontró ninguna cámara en este dispositivo.', 'error');
+                } else {
+                    showStatus('Error al acceder a la cámara: ' + error.message, 'error');
+                }
+            }
+        }
+        
+        function isMobile() {
+            return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        }
+        
+        function findRearCamera(devices) {
+            // Buscar cámara trasera por diferentes nombres
+            const rearKeywords = ['back', 'rear', 'environment', '2', '1'];
+            
+            for (const device of devices) {
+                const label = device.label.toLowerCase();
+                if (rearKeywords.some(keyword => label.includes(keyword))) {
+                    return device;
+                }
+            }
+            
+            // Si no encuentra cámara trasera, usar la primera
+            return devices.length > 0 ? devices[0] : null;
+        }
+        
+        async function startScanner() {
+            const cameraId = cameraSelect.value;
+            
+            if (!cameraId) {
+                showStatus('Por favor, selecciona una cámara primero', 'error');
+                return;
+            }
+            
+            try {
+                showStatus('Iniciando cámara...', 'info');
+                
+                const config = {
+                    fps: 10,
+                    qrbox: { width: 250, height: 250 },
+                    aspectRatio: 1.0
+                };
+                
+                await html5QrCode.start(
+                    cameraId,
+                    config,
+                    onScanSuccess,
+                    onScanFailure
+                );
+                
+                currentCameraId = cameraId;
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+                cameraSelect.disabled = true;
+                showStatus('Escáner activo - Apunta al código QR', 'success');
+                
+            } catch (error) {
+                console.error('Error starting scanner:', error);
+                showStatus('Error al iniciar el escáner: ' + error.message, 'error');
+                startBtn.disabled = false;
+            }
+        }
+        
+        async function stopScanner() {
+            try {
+                if (html5QrCode && html5QrCode.isScanning) {
+                    await html5QrCode.stop();
+                }
+                
+                currentCameraId = null;
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+                cameraSelect.disabled = false;
+                showStatus('Escáner detenido', 'info');
+                
+            } catch (error) {
+                console.error('Error stopping scanner:', error);
+                showStatus('Error al detener el escáner', 'error');
+            }
+        }
+        
+        function onScanSuccess(decodedText, decodedResult) {
+            // Mostrar resultado
+            resultDiv.innerHTML = `
+                <strong>✅ Código QR detectado:</strong>
+                <div style="margin-top: 10px; padding: 10px; background: white; border-radius: 5px; word-break: break-all;">
+                    ${decodedText}
+                </div>
+            `;
+            
+            // Habilitar botón guardar
+            saveBtn.disabled = false;
+            
+            // Guardar en historial
+            addToHistory(decodedText);
+            
+            // Feedback visual
+            showStatus('Código QR detectado correctamente', 'success');
+            
+            // Auto-detener después de 3 segundos
+            setTimeout(() => {
+                if (html5QrCode && html5QrCode.isScanning) {
+                    stopScanner();
+                }
+            }, 3000);
+        }
+        
+        function onScanFailure(error) {
+            // No hacemos nada con los errores de escaneo
+            // Son normales cuando no hay código QR en vista
+        }
+        
+        function addToHistory(data) {
+            const timestamp = new Date().toLocaleString();
+            scanHistory.unshift({
+                data: data,
+                timestamp: timestamp
+            });
+            
+            // Mantener máximo 10 elementos
+            if (scanHistory.length > 10) {
+                scanHistory = scanHistory.slice(0, 10);
+            }
+            
+            // Guardar en localStorage
+            localStorage.setItem('qrHistory', JSON.stringify(scanHistory));
+            
+            // Actualizar display
+            updateHistoryDisplay();
+        }
+        
+        function updateHistoryDisplay() {
+            historyDiv.innerHTML = '';
+            
+            if (scanHistory.length === 0) {
+                historyDiv.innerHTML = '<p style="padding: 20px; text-align: center; color: #666;">No hay escaneos recientes</p>';
+                return;
+            }
+            
+            scanHistory.forEach(item => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'history-item';
+                itemDiv.innerHTML = `
+                    <div>${item.data}</div>
+                    <div class="timestamp">${item.timestamp}</div>
+                `;
+                historyDiv.appendChild(itemDiv);
+            });
+        }
+        
+        async function saveToSheets() {
+            const currentData = resultDiv.querySelector('div')?.textContent;
+            
+            if (!currentData) {
+                showStatus('No hay datos para guardar', 'error');
+                return;
+            }
+            
+            try {
+                showStatus('Guardando en Google Sheets...', 'info');
+                
+                // URL de tu Google Apps Script (REEMPLAZA ESTO)
+                const scriptURL = 'https://script.google.com/macros/s/https://script.google.com/macros/s/AKfycbwV7CFeaa9HfI-jPAf-bKbRsUUXc1af5mFj4X_9b-Rv7hiL5-yoVXx3mZJT1vz_NJ7L/exec';
+                
+                const formData = new FormData();
+                formData.append('data', currentData);
+                formData.append('timestamp', new Date().toISOString());
+                
+                await fetch(scriptURL, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                showStatus('✅ Datos guardados en Google Sheets', 'success');
+                saveBtn.disabled = true;
+                
+            } catch (error) {
+                console.error('Error saving to sheets:', error);
+                showStatus('Error al guardar. Verifica tu conexión.', 'error');
+            }
+        }
+        
+        function onCameraChange() {
+            // Si hay un escaneo activo, reiniciar con la nueva cámara
+            if (html5QrCode && html5QrCode.isScanning) {
+                stopScanner().then(() => {
+                    setTimeout(startScanner, 500);
+                });
+            }
+        }
+        
+        function showStatus(message, type) {
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+        }
+        
+        // Manejar cambios de orientación en móviles
+        window.addEventListener('orientationchange', function() {
+            setTimeout(() => {
+                if (html5QrCode && html5QrCode.isScanning) {
+                    stopScanner().then(() => {
+                        setTimeout(startScanner, 1000);
+                    });
+                }
+            }, 300);
+        });
+    </script>
+</body>
+</html>
