@@ -5,9 +5,8 @@ let scanning = false;
 let qrData = '';
 let stream = null;
 
-// Configuración para Google Form (valores extraídos del HTML proporcionado)
-const googleFormUrl = 'https://docs.google.com/forms/d/e/1FAIpQLSd53K1i0kxun-7FvG39My4-cmX86a3C1qQE5scna7jCtca/formResponse';
-const googleFieldName = 'entry.570948853';
+// URL de tu Apps Script (YA CONFIGURADA)
+const scriptUrl = 'https://script.google.com/macros/s/AKfycby6xgh20D0UOHgTRJQhZUC0gej0JtNy6XEQRNcoJAs0C_gViDj6ug0lrhA3iY9Orv7w/exec';
 
 document.getElementById('startScan').addEventListener('click', startScanning);
 document.getElementById('stopScan').addEventListener('click', stopScanning);
@@ -15,39 +14,38 @@ document.getElementById('sendToGoogle').addEventListener('click', sendToGoogleFo
 document.getElementById('saveToCSV').addEventListener('click', saveToCSV);
 
 function setStatus(message, isError = false) {
-    document.getElementById('status').textContent = message;
-    document.getElementById('status').style.color = isError ? 'red' : 'black';
+    const statusEl = document.getElementById('status');
+    statusEl.textContent = message;
+    statusEl.style.color = isError ? 'red' : '#4CAF50';
 }
 
 function startScanning() {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        setStatus('Error: Este navegador no soporta acceso a la cámara.', true);
+        setStatus('Error: Cámara no soportada.', true);
         return;
     }
 
     if (!window.jsQR) {
-        setStatus('Error: Librería jsQR no cargada. Verifica la conexión o el archivo jsQR.js.', true);
+        setStatus('Error: Librería jsQR no cargada.', true);
         return;
     }
 
     scanning = true;
     document.getElementById('startScan').style.display = 'none';
     document.getElementById('stopScan').style.display = 'block';
-    setStatus('Escaneando... Apunta la cámara al QR.');
+    setStatus('Escaneando... Apunta al código QR.');
 
     navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
         .then(mediaStream => {
             stream = mediaStream;
             video.srcObject = stream;
-            video.play().catch(err => setStatus('Error al reproducir video: ' + err.message, true));
+            video.play().catch(err => setStatus('Error al iniciar video: ' + err.message, true));
             requestAnimationFrame(scanQR);
         })
         .catch(err => {
-            setStatus('Error al acceder a la cámara: ' + err.message, true);
+            setStatus('Error de cámara: ' + err.message, true);
             if (err.name === 'NotAllowedError') {
-                setStatus('Permiso de cámara denegado. Habilita los permisos en tu navegador.', true);
-            } else if (err.name === 'NotFoundError') {
-                setStatus('No se encontró una cámara en el dispositivo.', true);
+                setStatus('Permiso denegado. Habilita la cámara.', true);
             }
         });
 }
@@ -78,23 +76,18 @@ function scanQR() {
             document.getElementById('qrData').textContent = qrData;
             document.getElementById('result').style.display = 'block';
             stopScanning();
-            setStatus('QR detectado!');
+            setStatus('QR detectado correctamente');
             return;
         }
-    } else {
-        setStatus('Cámara no lista, esperando datos...', true);
     }
     requestAnimationFrame(scanQR);
 }
 
 function sendToGoogleForm() {
     if (!qrData) {
-        setStatus('Error: No hay datos de QR para enviar.', true);
+        setStatus('Error: No hay datos para enviar.', true);
         return;
     }
-
-    // Reemplaza esta URL con la que obtuviste en el paso 3
-    const scriptUrl = 'https://script.google.com/macros/s/AKfycby6xgh20D0UOHgTRJQhZUC0gej0JtNy6XEQRNcoJAs0C_gViDj6ug0lrhA3iY9Orv7w/exec';
 
     const payload = `qrData=${encodeURIComponent(qrData)}`;
 
@@ -106,31 +99,26 @@ function sendToGoogleForm() {
         },
         body: payload
     }).then(() => {
-        setStatus('Datos enviados a Google Sheet. Revisa la hoja "Registro QR".');
+        setStatus('ÉXITO: Datos guardados en Google Sheet "Registro QR"', false);
     }).catch(err => {
         setStatus('Error de red: ' + err.message, true);
     });
 }
 
 function saveToCSV() {
-    if (!qrData) {
-        setStatus('Error: No hay datos de QR para guardar.', true);
-        return;
-    }
+    if (!qrData) return;
 
-    let storedData = localStorage.getItem('qrDataList') || '';
-    storedData += qrData + '\n';
-    localStorage.setItem('qrDataList', storedData);
+    const timestamp = new Date().toLocaleString('es-ES');
+    let data = localStorage.getItem('qrList') || '';
+    data += `"${timestamp}","${qrData.replace(/"/g, '""')}"\n`;
+    localStorage.setItem('qrList', data);
 
-    let csvContent = "data:text/csv;charset=utf-8,QR_Data\n" + storedData;
-    let encodedUri = encodeURI(csvContent);
-    let link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", "qr_data.csv");
+    const csv = 'data:text/csv;charset=utf-8,Fecha_Hora,Datos_QR\n' + data;
+    const link = document.createElement('a');
+    link.href = encodeURI(csv);
+    link.download = `qr_${new Date().toISOString().split('T')[0]}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    setStatus('CSV descargado. Ábrelo en Excel.');
+    setStatus('CSV descargado (respaldo local)');
 }
-
-
