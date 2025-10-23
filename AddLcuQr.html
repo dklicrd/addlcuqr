@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Lector QR Móvil</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        }
+        
+        :root {
+            --primary: #4361ee;
+            --secondary: #3a0ca3;
+            --success: #4cc9f0;
+            --danger: #f72585;
+            --light: #f8f9fa;
+            --dark: #212529;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            color: var(--dark);
+        }
+        
+        .container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            max-width: 100%;
+            background-color: white;
+            border-radius: 0;
+            box-shadow: none;
+        }
+        
+        header {
+            background: linear-gradient(to right, var(--primary), var(--secondary));
+            color: white;
+            padding: 20px 15px;
+            text-align: center;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        h1 {
+            font-size: 1.5rem;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+        
+        .subtitle {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+        
+        .main-content {
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            flex: 1;
+            overflow-y: auto;
+        }
+        
+        .section {
+            border: 1px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 15px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+        }
+        
+        .section-title {
+            font-size: 1.1rem;
+            margin-bottom: 12px;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+        }
+        
+        #video-container {
+            position: relative;
+            width: 100%;
+            margin: 0 auto;
+            border-radius: 8px;
+            overflow: hidden;
+            background-color: #000;
+            aspect-ratio: 4/3;
+        }
+        
+        #video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .scanner-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            pointer-events: none;
+        }
+        
+        .scanner-frame {
+            width: 70%;
+            height: 70%;
+            border: 2px solid var(--success);
+            border-radius: 8px;
+            box-shadow: 0 0 0 1000px rgba(0, 0, 0, 0.5);
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { border-color: var(--success); }
+            50% { border-color: #8ac6ff; }
+            100% { border-color: var(--success); }
+        }
+        
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        button {
+            padding: 14px 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            flex: 1;
+            font-size: 0.9rem;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        
+        #start-button {
+            background-color: var(--primary);
+            color: white;
+        }
+        
+        #stop-button {
+            background-color: var(--danger);
+            color: white;
+        }
+        
+        #save-button {
+            background-color: #10b981;
+            color: white;
+        }
+        
+        button:active {
+            transform: scale(0.98);
+        }
+        
+        button:disabled {
+            background-color: #d1d5db;
+            color: #9ca3af;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        #qr-result {
+            margin-top: 15px;
+            padding: 15px;
+            background-color: #f0f9ff;
+            border-radius: 8px;
+            min-height: 60px;
+            word-break: break-all;
+            border-left: 4px solid var(--primary);
+        }
+        
+        .instructions {
+            background-color: #e8f4fd;
+            border-left: 4px solid var(--primary);
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+        }
+        
+        .instructions h3 {
+            color: var(--primary);
+            margin-bottom: 10px;
+            font-size: 1rem;
+        }
+        
+        .instructions ol {
+            margin-left: 20px;
+            font-size: 0.85rem;
+        }
+        
+        .instructions li {
+            margin-bottom: 8px;
+        }
+        
+        .status {
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+            margin-top: 10px;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+        
+        .success {
+            background-color: #d1fae5;
+            color: #065f46;
+            border: 1px solid #a7f3d0;
+        }
+        
+        .error {
+            background-color: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fecaca;
+        }
+        
+        .warning {
+            background-color: #fef3c7;
+            color: #92400e;
+            border: 1px solid #fde68a;
+        }
+        
+        .history {
+            margin-top: 15px;
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 10px;
+        }
+        
+        .history-item {
+            padding: 10px;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .history-item:last-child {
+            border-bottom: none;
+        }
+        
+        .timestamp {
+            font-size: 0.75rem;
+            color: #6b7280;
+        }
+        
+        footer {
+            text-align: center;
+            padding: 15px;
+            background-color: #f5f5f5;
+            color: #6b7280;
+            font-size: 0.8rem;
+            border-top: 1px solid #e5e5e5;
+        }
+        
+        .permission-help {
+            background-color: #fffbeb;
+            border: 1px solid #fcd34d;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .permission-help h3 {
+            color: #d97706;
+            font-size: 1rem;
+            margin-bottom: 8px;
+        }
+        
+        .permission-help p {
+            font-size: 0.85rem;
+            margin-bottom: 5px;
+        }
+        
+        /* Estilos para dispositivos muy pequeños */
+        @media (max-width: 360px) {
+            .main-content {
+                padding: 10px;
+            }
+            
+            .section {
+                padding: 12px;
+            }
+            
+            button {
+                padding: 12px;
+                font-size: 0.85rem;
+            }
+        }
+        
+        /* Estilos para tablets y pantallas más grandes */
+        @media (min-width: 768px) {
+            body {
+                padding: 20px;
+                justify-content: center;
+                align-items: center;
+            }
+            
+            .container {
+                border-radius: 15px;
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+                max-width: 700px;
+                max-height: 90vh;
+            }
+            
+            .main-content {
+                padding: 25px;
+            }
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Lector de Códigos QR</h1>
+            <p class="subtitle">Escanea y almacena datos en Google Sheets</p>
+        </header>
+        
+        <div class="main-content">
+            <div class="permission-help">
+                <h3>💡 Permisos de Cámara</h3>
+                <p>Esta aplicación necesita acceso a tu cámara para escanear códigos QR.</p>
+                <p>Si no ves la cámara, asegúrate de haber permitido el acceso.</p>
+            </div>
+            
+            <section class="section">
+                <h2 class="section-title">
+                    <span>📷</span> Escáner de Código QR
+                </h2>
+                <div id="video-container">
+                    <video id="video" playsinline></video>
+                    <div class="scanner-overlay">
+                        <div class="scanner-frame"></div>
+                    </div>
+                </div>
+                <canvas id="canvas"></canvas>
+                
+                <div class="controls">
+                    <button id="start-button">
+                        <span>▶️</span> Iniciar Cámara
+                    </button>
+                    <button id="stop-button" disabled>
+                        <span>⏹️</span> Detener
+                    </button>
+                    <button id="save-button" disabled>
+                        <span>💾</span> Guardar
+                    </button>
+                </div>
+                
+                <div id="qr-result">
+                    <p>El resultado del código QR aparecerá aquí...</p>
+                </div>
+                
+                <div id="status" class="status"></div>
+            </section>
+            
+            <section class="section">
+                <h2 class="section-title">
+                    <span>📊</span> Datos Escaneados
+                </h2>
+                <div class="history" id="history">
+                    <!-- Los datos escaneados recientemente aparecerán aquí -->
+                </div>
+            </section>
+            
+            <div class="instructions">
+                <h3>Configuración de Google Sheets</h3>
+                <ol>
+                    <li>Crea una nueva hoja de cálculo en Google Sheets</li>
+                    <li>Ve a Extensiones > Apps Script</li>
+                    <li>Reemplaza el código por defecto con el script proporcionado</li>
+                    <li>Guarda el proyecto y despliégalo como una aplicación web</li>
+                    <li>Copia la URL de despliegue y pégala en el código JavaScript</li>
+                </ol>
+            </div>
+        </div>
+        
+        <footer>
+            <p>Aplicación optimizada para dispositivos móviles | &copy; 2023</p>
+        </footer>
+    </div>
+
+    <script>
+        // Elementos DOM
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const startButton = document.getElementById('start-button');
+        const stopButton = document.getElementById('stop-button');
+        const saveButton = document.getElementById('save-button');
+        const qrResult = document.getElementById('qr-result');
+        const statusDiv = document.getElementById('status');
+        const historyDiv = document.getElementById('history');
+        
+        // Variables de estado
+        let stream = null;
+        let scanning = false;
+        let qrData = null;
+        let scanHistory = [];
+        let isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        
+        // Inicializar la aplicación
+        document.addEventListener('DOMContentLoaded', initApp);
+        
+        function initApp() {
+            // Cargar historial desde localStorage
+            const savedHistory = localStorage.getItem('qrScanHistory');
+            if (savedHistory) {
+                scanHistory = JSON.parse(savedHistory);
+                updateHistoryDisplay();
+            }
+            
+            // Configurar event listeners
+            startButton.addEventListener('click', startCamera);
+            stopButton.addEventListener('click', stopCamera);
+            saveButton.addEventListener('click', saveToGoogleSheets);
+            
+            // Verificar si hay una cámara disponible
+            checkCameraAvailability();
+            
+            // Mostrar mensaje específico para móviles
+            if (isMobile) {
+                showStatus('Para una mejor experiencia, usa la cámara trasera y mantén el código QR dentro del marco.', 'warning');
+            }
+        }
+        
+        function checkCameraAvailability() {
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                startButton.disabled = false;
+            } else {
+                startButton.disabled = true;
+                showStatus('Tu navegador no soporta el acceso a la cámara.', 'error');
+            }
+        }
+        
+        async function startCamera() {
+            try {
+                // Mostrar mensaje de carga
+                showStatus('Iniciando cámara...', 'warning');
+                
+                // En móviles, preferir la cámara trasera
+                const constraints = {
+                    video: { 
+                        facingMode: isMobile ? 'environment' : 'user',
+                        width: { ideal: isMobile ? 1280 : 1920 },
+                        height: { ideal: isMobile ? 720 : 1080 }
+                    } 
+                };
+                
+                // Solicitar acceso a la cámara
+                stream = await navigator.mediaDevices.getUserMedia(constraints);
+                
+                // Conectar el stream de video al elemento video
+                video.srcObject = stream;
+                
+                // Configurar el canvas con las mismas dimensiones que el video
+                video.addEventListener('loadedmetadata', () => {
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    
+                    // En móviles, ajustar la orientación
+                    if (isMobile) {
+                        setupMobileCamera();
+                    }
+                });
+                
+                // Actualizar estado de los botones
+                startButton.disabled = true;
+                stopButton.disabled = false;
+                saveButton.disabled = true;
+                
+                // Iniciar el escaneo
+                scanning = true;
+                scanQRCode();
+                
+                showStatus('Cámara activada. Apunta al código QR.', 'success');
+            } catch (error) {
+                console.error('Error al acceder a la cámara:', error);
+                let errorMessage = 'Error al acceder a la cámara. ';
+                
+                if (error.name === 'NotAllowedError') {
+                    errorMessage += 'Permiso denegado. Por favor, permite el acceso a la cámara en la configuración de tu navegador.';
+                } else if (error.name === 'NotFoundError') {
+                    errorMessage += 'No se encontró una cámara en este dispositivo.';
+                } else if (error.name === 'NotSupportedError') {
+                    errorMessage += 'El acceso a la cámara no es compatible con este navegador.';
+                } else if (error.name === 'NotReadableError') {
+                    errorMessage += 'La cámara ya está en uso por otra aplicación.';
+                } else {
+                    errorMessage += error.message;
+                }
+                
+                showStatus(errorMessage, 'error');
+                startButton.disabled = false;
+            }
+        }
+        
+        function setupMobileCamera() {
+            // Ajustar la orientación del video en dispositivos móviles
+            const isPortrait = window.matchMedia("(orientation: portrait)").matches;
+            
+            if (isPortrait) {
+                video.style.transform = 'scaleX(-1)'; // Espejar la imagen para una experiencia más natural
+            }
+        }
+        
+        function stopCamera() {
+            if (stream) {
+                // Detener todas las pistas de video
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+            }
+            
+            // Actualizar estado de los botones
+            startButton.disabled = false;
+            stopButton.disabled = true;
+            saveButton.disabled = true;
+            
+            // Detener el escaneo
+            scanning = false;
+            
+            showStatus('Cámara desactivada.', 'success');
+        }
+        
+        function scanQRCode() {
+            if (!scanning) return;
+            
+            // Verificar que el video esté listo
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                // Dibujar el frame actual en el canvas
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                
+                // Obtener los datos de imagen del canvas
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                
+                // Intentar decodificar el código QR
+                const code = jsQR(imageData.data, imageData.width, imageData.height);
+                
+                if (code) {
+                    // Código QR detectado
+                    qrData = code.data;
+                    
+                    // Mostrar el resultado
+                    qrResult.innerHTML = `<strong>Datos detectados:</strong><br>${qrData}`;
+                    
+                    // Habilitar el botón de guardar
+                    saveButton.disabled = false;
+                    
+                    // Agregar al historial
+                    addToHistory(qrData);
+                    
+                    // Detener temporalmente el escaneo para evitar múltiples lecturas
+                    scanning = false;
+                    setTimeout(() => {
+                        scanning = true;
+                        scanQRCode();
+                    }, 2000);
+                    
+                    showStatus('Código QR detectado correctamente.', 'success');
+                    return;
+                }
+            }
+            
+            // Continuar escaneando
+            if (scanning) {
+                requestAnimationFrame(scanQRCode);
+            }
+        }
+        
+        function addToHistory(data) {
+            const timestamp = new Date().toLocaleString();
+            scanHistory.unshift({ data, timestamp });
+            
+            // Mantener solo los últimos 10 elementos
+            if (scanHistory.length > 10) {
+                scanHistory = scanHistory.slice(0, 10);
+            }
+            
+            // Guardar en localStorage
+            localStorage.setItem('qrScanHistory', JSON.stringify(scanHistory));
+            
+            // Actualizar la visualización
+            updateHistoryDisplay();
+        }
+        
+        function updateHistoryDisplay() {
+            historyDiv.innerHTML = '';
+            
+            if (scanHistory.length === 0) {
+                historyDiv.innerHTML = '<p>No hay datos escaneados recientemente.</p>';
+                return;
+            }
+            
+            scanHistory.forEach(item => {
+                const historyItem = document.createElement('div');
+                historyItem.className = 'history-item';
+                historyItem.innerHTML = `
+                    <div class="data">${item.data}</div>
+                    <div class="timestamp">${item.timestamp}</div>
+                `;
+                historyDiv.appendChild(historyItem);
+            });
+        }
+        
+        function showStatus(message, type) {
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+            
+            // Ocultar el mensaje después de 5 segundos (excepto errores)
+            if (type !== 'error') {
+                setTimeout(() => {
+                    statusDiv.textContent = '';
+                    statusDiv.className = 'status';
+                }, 5000);
+            }
+        }
+        
+        async function saveToGoogleSheets() {
+            if (!qrData) {
+                showStatus('No hay datos para guardar.', 'error');
+                return;
+            }
+            
+            try {
+                showStatus('Guardando en Google Sheets...', 'warning');
+                
+                // URL del script de Google Apps (debes reemplazar esto con tu URL)
+                const scriptURL = 'https://script.google.com/macros/s/https://script.google.com/macros/s/AKfycbwV7CFeaa9HfI-jPAf-bKbRsUUXc1af5mFj4X_9b-Rv7hiL5-yoVXx3mZJT1vz_NJ7L/exec/exec';
+                
+                // Enviar datos a Google Sheets
+                await fetch(scriptURL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: 'saveQRData',
+                        data: qrData,
+                        timestamp: new Date().toISOString()
+                    })
+                });
+                
+                showStatus('Datos guardados exitosamente en Google Sheets!', 'success');
+                
+                // Deshabilitar el botón de guardar hasta que se detecte un nuevo código
+                saveButton.disabled = true;
+                
+            } catch (error) {
+                console.error('Error al guardar en Google Sheets:', error);
+                showStatus('Error al guardar en Google Sheets. Verifica tu conexión.', 'error');
+            }
+        }
+        
+        // Manejar cambios de orientación en dispositivos móviles
+        window.addEventListener('orientationchange', function() {
+            setTimeout(() => {
+                if (stream && isMobile) {
+                    setupMobileCamera();
+                }
+            }, 300);
+        });
+    </script>
+</body>
+</html>
