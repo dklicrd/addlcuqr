@@ -5,9 +5,9 @@ let scanning = false;
 let qrData = '';
 let stream = null;
 
-// Configuración para Google Form (reemplaza con tus valores)
-const googleFormUrl = 'https://docs.google.com/forms/d/e/1FAIpQLSd5JKiI0kxun-7FvgJ9My4-cm_x8e34CigQE5scqnA7cjtTcA/formResponse'; // Actualiza con tu URL
-const googleFieldName = 'entry.QR_Data'; // Actualiza con el nombre del campo
+// Configuración para Google Form (reemplaza con tus valores exactos)
+const googleFormUrl = 'https://docs.google.com/forms/d/e/1FAIpQLSd53K1i0kxun-7FvG39My4-cmX86a3C1qQE5scna7jCtca/formResponse'; // URL de acción extraída de la imagen
+const googleFieldName = 'entry.123456789'; // Reemplaza con el valor real (ej: entry.2005620554) obtenido inspeccionando el input
 
 document.getElementById('startScan').addEventListener('click', startScanning);
 document.getElementById('stopScan').addEventListener('click', stopScanning);
@@ -94,7 +94,7 @@ function sendToGoogleForm() {
     }
 
     if (!googleFormUrl.includes('formResponse') || !googleFieldName.startsWith('entry.')) {
-        setStatus('Error: Configura correctamente googleFormUrl y googleFieldName en script.js.', true);
+        setStatus('Error: Configura correctamente googleFormUrl y googleFieldName en script.js. Inspecciona el formulario para obtenerlos.', true);
         return;
     }
 
@@ -106,9 +106,9 @@ function sendToGoogleForm() {
         body: formData,
         mode: 'no-cors'
     }).then(() => {
-        setStatus('Datos enviados a Google Form exitosamente!');
+        setStatus('Datos enviados a Google Form. Verifica la pestaña "Respuestas" en tu formulario (refresca si es necesario).');
     }).catch(err => {
-        setStatus('Error al enviar a Google Form: ' + err.message, true);
+        setStatus('Error al enviar a Google Form: ' + err.message + '. Verifica la URL, el nombre del campo y los permisos del formulario.', true);
     });
 }
 
