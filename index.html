@@ -7,7 +7,34 @@
     <title>Escáner QR del LCU</title>
     <link rel="stylesheet" href="styles.css">
 </head>
-<body>
+<body><!-- Botón Google -->
+<div id="googleSignIn" style="text-align: center; margin: 20px;">
+  <div id="g_id_onload"
+       data-client_id="TU_CLIENT_ID.apps.googleusercontent.com"
+       data-login_uri="https://dklicrd.github.io/qr-scanner/"
+       data-auto_prompt="false">
+  </div>
+  <div class="g_id_signin"
+       data-type="standard"
+       data-size="large"
+       data-theme="outline"
+       data-text="signin_with"
+       data-shape="rectangular"
+       data-logo_alignment="left">
+  </div>
+</div>
+
+<!-- Info de usuario -->
+<div id="userInfo" style="display: none; text-align: center; margin: 10px; color: #4CAF50; font-weight: bold;">
+  <img id="userAvatar" width="30" style="border-radius: 50%; vertical-align: middle; margin-right: 8px;">
+  <span id="currentUser"></span>
+  <button onclick="logout()" style="margin-left: 10px; background: #f44336; color: white; border: none; padding: 5px 10px; border-radius: 3px; font-size: 12px;">Salir</button>
+</div>
+
+<!-- Botón Exportar Mis Datos -->
+<button id="exportMyData" style="display: none; background: #2196F3; color: white; padding: 10px; margin: 10px; border: none; border-radius: 5px; width: 100%; font-size: 16px;">
+  Exportar Mis Lecturas (CSV)
+</button>
     <div class="container">
         <h1>Escáner de Códigos QR</h1>
         <p>Presiona "Escanear" para leer un QR y almacenar sus datos.</p>
@@ -34,3 +61,4 @@
 </body>
 
 </html>
+
