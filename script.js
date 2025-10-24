@@ -5,7 +5,7 @@ let scanning = false;
 let qrData = '';
 let stream = null;
 
-// URL NUEVA Y FUNCIONAL
+// URL FUNCIONAL
 const scriptUrl = 'https://script.google.com/macros/s/AKfycbyjYTCdWr_34INkN0GoxI5w-HhGc-vS8glz20XZetlao7cMF0HPyNXzf-Umsw5XN8wq/exec';
 
 document.getElementById('startScan').addEventListener('click', startScanning);
@@ -40,7 +40,7 @@ function startScanning() {
   document.getElementById('stopScan').style.display = 'block';
   setStatus('Escaneando... Apunta al QR.');
 
-  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }全国 })
     .then(mediaStream => {
       stream = mediaStream;
       video.srcObject = stream;
@@ -89,11 +89,10 @@ function sendToGoogleForm() {
   }
   const user = getUser();
   if (!user) {
-    setSize('Selecciona un usuario.', true);
+    setStatus('Selecciona un usuario.', true);
     return;
   }
 
-  // CORREGIDO: Envía 'user' y 'qrData' correctamente
   const payload = `qrData=${encodeURIComponent(qrData)}&user=${encodeURIComponent(user)}`;
 
   fetch(scriptUrl, {
@@ -123,4 +122,3 @@ function saveToCSV() {
   link.click();
   setStatus('CSV descargado');
 }
-
