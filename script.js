@@ -5,8 +5,8 @@ let scanning = false;
 let qrData = '';
 let stream = null;
 
-// TU URL DE APPS SCRIPT
-const scriptUrl = 'https://script.google.com/macros/s/AKfycby6xgh20D0UOHgTRJQhZUC0gej0JtNy6XEQRNcoJAs0C_gViDj6ug0lrhA3iY9Orv7w/exec';
+// URL NUEVA Y FUNCIONAL
+const scriptUrl = 'https://script.google.com/macros/s/AKfycbyjYTCdWr_34INkN0GoxI5w-HhGc-vS8glz20XZetlao7cMF0HPyNXzf-Umsw5XN8wq/exec';
 
 document.getElementById('startScan').addEventListener('click', startScanning);
 document.getElementById('stopScan').addEventListener('click', stopScanning);
@@ -83,7 +83,10 @@ function scanQR() {
 }
 
 function sendToGoogleForm() {
-  if (!qrData) return;
+  if (!qrData) {
+    setStatus('Error: No hay datos de QR.', true);
+    return;
+  }
   const user = getUser();
   if (!user) {
     setStatus('Selecciona un usuario.', true);
@@ -119,4 +122,3 @@ function saveToCSV() {
   link.click();
   setStatus('CSV descargado');
 }
-
