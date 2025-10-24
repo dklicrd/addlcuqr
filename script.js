@@ -6,27 +6,37 @@ let qrData = '';
 let stream = null;
 let existingQRs = new Set();
 
-const scriptUrl = 'https://script.google.com/macros/s/AKfycbyjYTCdWr_34INkN0GoxI5w-HhGc-vS8glz20XZetlao7cMF0HPyNXzf-Umsw5Xn8wq/exec';
+const scriptUrl = 'https://script.google.com/macros/s/AKfycbyjYTCdWr_34INkN0GoxI5w-HhGc-vS8glz20XZetlao7cMF0HPyNXzf-Umsw5XN8wq/exec';
 const STORAGE_KEY = 'scannedQRs';
 
-// 1. CARGAR localStorage PRIMERO
+// CARGAR localStorage
 function loadLocalQRs() {
   const data = localStorage.getItem(STORAGE_KEY);
   if (data) {
     try {
       const qrs = JSON.parse(data);
       existingQRs = new Set(qrs);
-      setStatus(`Cargados ${qrs.length} códigos locales.`);
+      setStatus(`Local: ${qrs.length} códigos.`);
     } catch (e) {
-      console.error('Error en localStorage:', e);
+      console.error('localStorage error:', e);
     }
   }
 }
 
-// 2. SINCRONIZAR CON SHEETS (SOLO AGREGAR NUEVOS)
+// GUARDAR EN localStorage
+function saveToLocalStorage() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(existingQRs)));
+}
+
+// SINCRONIZAR CON SERVIDOR (CON CORS)
 async function syncWithServer() {
   try {
-    const response = await fetch(scriptUrl);
+    // CACHE BUSTER
+    const url = `${scriptUrl}?t=${Date.now()}`;
+    const response = await fetch(url, { mode: 'cors' });
+    
+    if (!response.ok) throw new Error('HTTP ' + response.status);
+    
     const text = await response.text();
     if (text && text !== 'ERROR') {
       const serverQRs = text.split('|').map(q => q.trim()).filter(Boolean);
@@ -37,28 +47,19 @@ async function syncWithServer() {
           added++;
         }
       });
-      if (added > 0) {
-        saveToLocalStorage();
-        setStatus(`Sincronizado: +${added} códigos nuevos. Total: ${existingQRs.size}`);
-      } else {
-        setStatus(`Sincronizado: ${existingQRs.size} códigos totales.`);
-      }
+      saveToLocalStorage();
+      setStatus(`Sincronizado: +${added} nuevos. Total: ${existingQRs.size}`);
     }
   } catch (err) {
-    console.warn('Error sincronizando:', err);
-    setStatus('Offline: usando memoria local.');
+    console.warn('Sync falló:', err);
+    setStatus('Offline: solo memoria local.');
   }
-}
-
-// 3. GUARDAR EN localStorage
-function saveToLocalStorage() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(existingQRs)));
 }
 
 // CARGA AL INICIAR
 window.addEventListener('load', () => {
-  loadLocalQRs();      // PRIMERO local
-  syncWithServer();    // LUEGO servidor
+  loadLocalQRs();
+  syncWithServer();
 });
 
 document.getElementById('startScan').addEventListener('click', startScanning);
@@ -125,7 +126,6 @@ function scanQR() {
     document.getElementById('qrData').textContent = qrData;
     document.getElementById('result').style.display = 'block';
     stopScanning();
-
     autoSaveQR();
   } else {
     requestAnimationFrame(scanQR);
@@ -136,9 +136,8 @@ async function autoSaveQR() {
   const user = getUser();
   if (!user || !qrData) return;
 
-  // VALIDACIÓN LOCAL
   if (existingQRs.has(qrData)) {
-    setStatus('DUPLICADO: Este QR ya fue registrado.', true);
+    setStatus('DUPLICADO: Ya registrado.', true);
     return;
   }
 
@@ -152,20 +151,16 @@ async function autoSaveQR() {
   })
   .then(() => {
     existingQRs.add(qrData);
-    saveToLocalStorage();  // GUARDAR INMEDIATAMENTE
+    saveToLocalStorage();
     setStatus(`ÉXITO: ${user} registró: ${qrData}`);
   })
   .catch(() => {
-    setStatus('Error de red. QR guardado localmente.', true);
+    setStatus('Error de red.', true);
   });
 }
 
 function saveToCSV() {
-  if (!qrData) {
-    setStatus('No hay QR para guardar.', true);
-    return;
-  }
-
+  if (!qrData) return;
   const user = getUser() || 'Anónimo';
   const timestamp = new Date().toLocaleString('es-ES');
   let data = localStorage.getItem('qrList') || '';
