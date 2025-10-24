@@ -1,82 +1,121 @@
-let currentUser = '';
-let userEmail = '';
-let userAvatar = '';
-const scriptUrl = 'https://script.google.com/macros/s/AKfycby6xgh20  /* TU URL */';
+let video = document.getElementById('video');
+let canvas = document.getElementById('canvas');
+let ctx = canvas.getContext('2d');
+let scanning = false;
+let qrData = '';
+let stream = null;
 
-// Google Sign-In
-function handleCredentialResponse(response) {
-  const data = JSON.parse(atob(response.credential.split('.')[1]));
-  currentUser = data.name;
-  userEmail = data.email;
-  userAvatar = data.picture;
+// TU URL DE APPS SCRIPT
+const scriptUrl = 'https://script.google.com/macros/s/AKfycby6xgh20D0UOHgTRJQhZUC0gej0JtNy6XEQRNcoJAs0C_gVi6ug0lrhA3iY9Orv7w/exec';
 
-  document.getElementById('currentUser').textContent = currentUser;
-  document.getElementById('userAvatar').src = userAvatar;
-  document.getElementById('userInfo').style.display = 'block';
-  document.getElementById('googleSignIn').style.display = 'none';
-  document.getElementById('exportMyData').style.display = 'block';
+document.getElementById('startScan').addEventListener('click', startScanning);
+document.getElementById('stopScan').addEventListener('click', stopScanning);
+document.getElementById('sendToGoogle').addEventListener('click', sendToGoogleForm);
+document.getElementById('saveToCSV').addEventListener('click', saveToCSV);
+
+function setStatus(message, isError = false) {
+  const status = document.getElementById('status');
+  status.textContent = message;
+  status.style.color = isError ? 'red' : '#4CAF50';
 }
 
-function logout() {
-  google.accounts.id.disableAutoSelect();
-  currentUser = userEmail = userAvatar = '';
-  document.getElementById('userInfo').style.display = 'none';
-  document.getElementById('googleSignIn').style.display = 'block';
-  document.getElementById('exportMyData').style.display = 'none';
+function getUser() {
+  return document.getElementById('userSelect').value;
 }
 
-// Exportar datos del usuario
-document.getElementById('exportMyData').addEventListener('click', () => {
-  if (!userEmail) return;
-
-  const sheetUrl = `https://docs.google.com/spreadsheets/d/1wCkiZ3bjMWOTmXQiXVWANZ8UlIDy6TTvaMlgXWwFEwc/export?format=csv&gid=0`;
-  
-  fetch(sheetUrl)
-    .then(r => r.text())
-    .then(csv => {
-      const lines = csv.split('\n');
-      const headers = lines[0];
-      const userRows = lines.slice(1).filter(row => row.includes(userEmail));
-      const userCsv = [headers, ...userRows].join('\n');
-      
-      const blob = new Blob([userCsv], { type: 'text/csv' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `mis_lecturas_${userEmail.split('@')[0]}.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
-      
-      setStatus(`Exportado: ${userRows.length} lecturas`);
-    });
-});
-
-// Enviar con usuario
-function sendToGoogleForm() {
-    if (!qrData) {
-        setStatus('Error: No hay datos para enviar.', true);
-        return;
-    }
-    if (!currentUser) {
-        setStatus('Debes iniciar sesión con Google.', true);
-        return;
-    }
-
-    const payload = `qrData=${encodeURIComponent(qrData)}&user=${encodeURIComponent(userEmail)}`;
-
-    fetch(scriptUrl, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: payload
-    }).then(() => {
-        setStatus(`ÉXITO: ${currentUser} registró: ${qrData}`, false);
-    });
-}
-
-// Carga inicial
-window.onload = () => {
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('service-worker.js');
+function startScanning() {
+  const user = getUser();
+  if (!user) {
+    setStatus('Selecciona un usuario primero.', true);
+    return;
   }
-};
+
+  if (!navigator.mediaDevices?.getUserMedia) {
+    setStatus('Cámara no soportada.', true);
+    return;
+  }
+
+  scanning = true;
+  document.getElementById('startScan').style.display = 'none';
+  document.getElementById('stopScan').style.display = 'block';
+  setStatus('Escaneando... Apunta al QR.');
+
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+    .then(mediaStream => {
+      stream = mediaStream;
+      video.srcObject = stream;
+      video.play();
+      requestAnimationFrame(scanQR);
+    })
+    .catch(err => setStatus('Error de cámara: ' + err.message, true));
+}
+
+function stopScanning() {
+  scanning = false;
+  document.getElementById('startScan').style.display = 'block';
+  document.getElementById('stopScan').style.display = 'none';
+  setStatus('');
+  if (stream) stream.getTracks().forEach(t => t.stop());
+}
+
+function scanQR() {
+  if (!scanning) return;
+  if (video.readyState !== video.HAVE_ENOUGH_DATA) {
+    requestAnimationFrame(scanQR);
+    return;
+  }
+
+  canvas.height = video.videoHeight;
+  canvas.width = video.videoWidth;
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const code = jsQR(imageData.data, imageData.width, imageData.height);
+
+  if (code) {
+    qrData = code.data;
+    document.getElementById('qrData').textContent = qrData;
+    document.getElementById('result').style.display = 'block';
+    stopScanning();
+    setStatus('QR detectado');
+  } else {
+    requestAnimationFrame(scanQR);
+  }
+}
+
+function sendToGoogleForm() {
+  if (!qrData) return;
+  const user = getUser();
+  if (!user) {
+    setStatus('Selecciona un usuario.', true);
+    return;
+  }
+
+  const payload = `qrData=${encodeURIComponent(qrData)}&user=${encodeURIComponent(user)}`;
+
+  fetch(scriptUrl, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: payload
+  }).then(() => {
+    setStatus(`ÉXITO: ${user} registró: ${qrData}`);
+  }).catch(err => {
+    setStatus('Error de red: ' + err.message, true);
+  });
+}
+
+function saveToCSV() {
+  if (!qrData) return;
+  const user = getUser() || 'Anónimo';
+  const timestamp = new Date().toLocaleString('es-ES');
+  let data = localStorage.getItem('qrList') || '';
+  data += `"${timestamp}","${user}","${qrData.replace(/"/g, '""')}"\n`;
+  localStorage.setItem('qrList', data);
+
+  const csv = 'data:text/csv;charset=utf-8,Fecha_Hora,Usuario,Datos_QR\n' + data;
+  const link = document.createElement('a');
+  link.href = encodeURI(csv);
+  link.download = 'qr_lecturas.csv';
+  link.click();
+  setStatus('CSV descargado');
+}
