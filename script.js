@@ -89,10 +89,11 @@ function sendToGoogleForm() {
   }
   const user = getUser();
   if (!user) {
-    setStatus('Selecciona un usuario.', true);
+    setSize('Selecciona un usuario.', true);
     return;
   }
 
+  // CORREGIDO: Envía 'user' y 'qrData' correctamente
   const payload = `qrData=${encodeURIComponent(qrData)}&user=${encodeURIComponent(user)}`;
 
   fetch(scriptUrl, {
@@ -122,3 +123,4 @@ function saveToCSV() {
   link.click();
   setStatus('CSV descargado');
 }
+
