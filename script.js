@@ -10,18 +10,17 @@ const scriptUrl = 'https://script.google.com/macros/s/AKfycbyjYTCdWr_34INkN0GoxI
 
 document.getElementById('startScan').addEventListener('click', startScanning);
 document.getElementById('stopScan').addEventListener('click', stopScanning);
-document.getElementById('sendToGoogle').addEventListener('click', sendToGoogleForm);
 document.getElementById('saveToCSV').addEventListener('click', saveToCSV);
 
-// CARGAR QRs AL INICIAR
+// CARGAR QRs EXISTENTES
 async function loadExistingQRs() {
   try {
     const response = await fetch(scriptUrl);
     const text = await response.text();
     if (text && text !== 'ERROR') {
-      const qrs = text.split('|').filter(qr => qr);
+      const qrs = text.split('|').map(q => q.trim()).filter(Boolean);
       existingQRs = new Set(qrs);
-      setStatus(`Cargados ${qrs.length} códigos existentes.`);
+      setStatus(`Listo: ${qrs.length} códigos cargados.`);
     }
   } catch (err) {
     console.warn('Error cargando QRs:', err);
@@ -91,28 +90,26 @@ function scanQR() {
     document.getElementById('result').style.display = 'block';
     stopScanning();
 
-    // VERIFICAR DUPLICADO LOCALMENTE
-    if (existingQRs.has(qrData)) {
-      setStatus('DUPLICADO: Este QR ya fue registrado.', true);
-      document.getElementById('sendToGoogle').disabled = true;
-    } else {
-      setStatus('QR nuevo. Presiona "Enviar" para guardar.');
-      document.getElementById('sendToGoogle').disabled = false;
-    }
+    // VERIFICAR Y ENVIAR AUTOMÁTICAMENTE
+    autoSaveQR();
   } else {
     requestAnimationFrame(scanQR);
   }
 }
 
-function sendToGoogleForm() {
-  if (!qrData || !getUser()) return;
+async function autoSaveQR() {
+  const user = getUser();
+  if (!user || !qrData) return;
+
+  // VALIDACIÓN LOCAL
   if (existingQRs.has(qrData)) {
-    setStatus('No se puede enviar: QR duplicado.', true);
+    setStatus('DUPLICADO: Este QR ya fue registrado.', true);
     return;
   }
 
-  const payload = `qrData=${encodeURIComponent(qrData)}&user=${encodeURIComponent(getUser())}`;
+  const payload = `qrData=${encodeURIComponent(qrData)}&user=${encodeURIComponent(user)}`;
 
+  // ENVIAR AL SERVIDOR
   fetch(scriptUrl, {
     method: 'POST',
     mode: 'no-cors',
@@ -120,9 +117,8 @@ function sendToGoogleForm() {
     body: payload
   })
   .then(() => {
-    existingQRs.add(qrData);  // Actualizar local
-    setStatus(`ÉXITO: ${getUser()} registró: ${qrData}`);
-    document.getElementById('sendToGoogle').disabled = true;
+    existingQRs.add(qrData);
+    setStatus(`ÉXITO: ${user} registró: ${qrData}`, false);
   })
   .catch(() => {
     setStatus('Error de red. Intenta de nuevo.', true);
@@ -130,7 +126,11 @@ function sendToGoogleForm() {
 }
 
 function saveToCSV() {
-  if (!qrData) return;
+  if (!qrData) {
+    setStatus('No hay QR para guardar.', true);
+    return;
+  }
+
   const user = getUser() || 'Anónimo';
   const timestamp = new Date().toLocaleString('es-ES');
   let data = localStorage.getItem('qrList') || '';
