@@ -6,7 +6,7 @@ let qrData = '';
 let stream = null;
 
 // TU URL DE APPS SCRIPT
-const scriptUrl = 'https://script.google.com/macros/s/AKfycby6xgh20D0UOHgTRJQhZUC0gej0JtNy6XEQRNcoJAs0C_gVi6ug0lrhA3iY9Orv7w/exec';
+const scriptUrl = 'https://script.google.com/macros/s/AKfycby6xgh20D0UOHgTRJQhZUC0gej0JtNy6XEQRNcoJAs0C_gViDj6ug0lrhA3iY9Orv7w/exec';
 
 document.getElementById('startScan').addEventListener('click', startScanning);
 document.getElementById('stopScan').addEventListener('click', stopScanning);
@@ -119,3 +119,4 @@ function saveToCSV() {
   link.click();
   setStatus('CSV descargado');
 }
+
