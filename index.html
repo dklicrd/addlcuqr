@@ -1,65 +1,50 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Escáner QR del LCU</title>
-    <link rel="stylesheet" href="styles.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Escáner QR</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://unpkg.com/jsqr@1.4.0/dist/jsQR.js"></script>
 </head>
-<body><!-- Botón Google -->
-<div id="googleSignIn" style="text-align: center; margin: 20px;">
-  <div id="g_id_onload"
-       data-client_id="76845148916-7ul0r8rh80986vbht2qrq3bk1lk81579.apps.googleusercontent.com"
-       data-login_uri="https://dklicrd.github.io/qr-scanner/"
-       data-auto_prompt="false">
-  </div>
-  <div class="g_id_signin"
-       data-type="standard"
-       data-size="large"
-       data-theme="outline"
-       data-text="signin_with"
-       data-shape="rectangular"
-       data-logo_alignment="left">
-  </div>
-</div>
+<body>
+  <div class="container">
+    <h1>Escáner QR</h1>
 
-<!-- Info de usuario -->
-<div id="userInfo" style="display: none; text-align: center; margin: 10px; color: #4CAF50; font-weight: bold;">
-  <img id="userAvatar" width="30" style="border-radius: 50%; vertical-align: middle; margin-right: 8px;">
-  <span id="currentUser"></span>
-  <button onclick="logout()" style="margin-left: 10px; background: #f44336; color: white; border: none; padding: 5px 10px; border-radius: 3px; font-size: 12px;">Salir</button>
-</div>
-
-<!-- Botón Exportar Mis Datos -->
-<button id="exportMyData" style="display: none; background: #2196F3; color: white; padding: 10px; margin: 10px; border: none; border-radius: 5px; width: 100%; font-size: 16px;">
-  Exportar Mis Lecturas (CSV)
-</button>
-    <div class="container">
-        <h1>Escáner de Códigos QR</h1>
-        <p>Presiona "Escanear" para leer un QR y almacenar sus datos.</p>
-        
-        <video id="video" width="100%" height="auto" autoplay playsinline></video>
-        <canvas id="canvas" style="display: none;"></canvas>
-        
-        <button id="startScan">Escanear QR</button>
-        <button id="stopScan" style="display: none;">Detener Escaneo</button>
-        
-        <div id="result" style="display: none;">
-            <h2>Datos del QR:</h2>
-            <p id="qrData"></p>
-            <button id="sendToGoogle">Enviar a Google Form</button>
-            <button id="saveToCSV">Descargar como CSV</button>
-        </div>
-        
-        <p id="status" style="color: red;"></p>
+    <!-- SELECT DE USUARIO -->
+    <div style="margin: 20px 0; text-align: center;">
+      <label for="userSelect"><strong>Usuario:</strong></label>
+      <select id="userSelect" required style="padding: 10px; font-size: 16px; width: 100%; margin-top: 8px;">
+        <option value="">Selecciona tu nombre</option>
+        <option value="Ana">Ana</option>
+        <option value="Juan">Juan</option>
+        <option value="Luis">Luis</option>
+        <option value="María">María</option>
+        <option value="Pedro">Pedro</option>
+      </select>
     </div>
-    
-    <!-- Usamos CDN para jsQR para evitar problemas de carga -->
-    <script src="https://unpkg.com/jsqr@1.4.0/dist/jsQR.js"></script>
-    <script src="script.js"></script>
+
+    <video id="video" autoplay playsinline></video>
+    <canvas id="canvas" style="display: none;"></canvas>
+
+    <div class="buttons">
+      <button id="startScan">Iniciar Escaneo</button>
+      <button id="stopScan" style="display: none;">Detener</button>
+    </div>
+
+    <div id="status"></div>
+
+    <!-- Resultado -->
+    <div id="result" style="display: none; margin-top: 20px; text-align: center;">
+      <h3>Datos del QR:</h3>
+      <p id="qrData" style="word-break: break-all; background: #f0f0f0; padding: 10px; border-radius: 5px;"></p>
+      <div class="buttons">
+        <button id="sendToGoogle">Enviar a Google Sheet</button>
+        <button id="saveToCSV">Guardar en CSV</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
 </body>
-
 </html>
-
-
