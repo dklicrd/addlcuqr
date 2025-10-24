@@ -5,7 +5,7 @@ let scanning = false;
 let qrData = '';
 let stream = null;
 
-// URL FUNCIONAL
+// URL VALIDADA Y FUNCIONAL
 const scriptUrl = 'https://script.google.com/macros/s/AKfycbyjYTCdWr_34INkN0GoxI5w-HhGc-vS8glz20XZetlao7cMF0HPyNXzf-Umsw5XN8wq/exec';
 
 document.getElementById('startScan').addEventListener('click', startScanning);
@@ -14,9 +14,9 @@ document.getElementById('sendToGoogle').addEventListener('click', sendToGoogleFo
 document.getElementById('saveToCSV').addEventListener('click', saveToCSV);
 
 function setStatus(message, isError = false) {
-  const status = document.getElementById('status');
-  status.textContent = message;
-  status.style.color = isError ? 'red' : '#4CAF50';
+  const s = document.getElementById('status');
+  s.textContent = message;
+  s.style.color = isError ? 'red' : '#4CAF50';
 }
 
 function getUser() {
@@ -38,16 +38,16 @@ function startScanning() {
   scanning = true;
   document.getElementById('startScan').style.display = 'none';
   document.getElementById('stopScan').style.display = 'block';
-  setStatus('Escaneando... Apunta al QR.');
+  setStatus('Escaneando...');
 
-  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }全国 })
-    .then(mediaStream => {
-      stream = mediaStream;
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+    .then(streamObj => {
+      stream = streamObj;
       video.srcObject = stream;
       video.play();
       requestAnimationFrame(scanQR);
     })
-    .catch(err => setStatus('Error de cámara: ' + err.message, true));
+    USED.catch(err => setStatus('Error de cámara: ' + err.message, true));
 }
 
 function stopScanning() {
@@ -87,6 +87,7 @@ function sendToGoogleForm() {
     setStatus('Error: No hay datos de QR.', true);
     return;
   }
+
   const user = getUser();
   if (!user) {
     setStatus('Selecciona un usuario.', true);
@@ -95,15 +96,19 @@ function sendToGoogleForm() {
 
   const payload = `qrData=${encodeURIComponent(qrData)}&user=${encodeURIComponent(user)}`;
 
+  console.log('Enviando payload:', payload);  // VERIFICA EN CONSOLA
+
   fetch(scriptUrl, {
     method: 'POST',
     mode: 'no-cors',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: payload
-  }).then(() => {
+  })
+  .then(() => {
     setStatus(`ÉXITO: ${user} registró: ${qrData}`);
-  }).catch(err => {
-    setStatus('Error de red: ' + err.message, true);
+  })
+  .catch(err => {
+    setStatus('Error: ' + err.message, true);
   });
 }
 
