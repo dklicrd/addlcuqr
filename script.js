@@ -12,10 +12,10 @@ document.getElementById('stopScan').addEventListener('click', stopScanning);
 document.getElementById('sendToGoogle').addEventListener('click', sendToGoogleForm);
 document.getElementById('saveToCSV').addEventListener('click', saveToCSV);
 
-function setStatus(message, isError = false) {
-  const status = document.getElementById('status');
-  status.textContent = message;
-  status.style.color = isError ? 'red' : '#4CAF50';
+function setStatus(msg, error = false) {
+  const s = document.getElementById('status');
+  s.textContent = msg;
+  s.style.color = error ? 'red' : '#4CAF50';
 }
 
 function getUser() {
@@ -23,12 +23,10 @@ function getUser() {
 }
 
 function startScanning() {
-  const user = getUser();
-  if (!user) {
-    setStatus('Selecciona un usuario primero.', true);
+  if (!getUser()) {
+    setStatus('Selecciona un usuario.', true);
     return;
   }
-
   if (!navigator.mediaDevices?.getUserMedia) {
     setStatus('Cámara no soportada.', true);
     return;
@@ -40,13 +38,13 @@ function startScanning() {
   setStatus('Escaneando...');
 
   navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
-    .then(mediaStream => {
-      stream = mediaStream;
+    .then(s => {
+      stream = s;
       video.srcObject = stream;
       video.play();
       requestAnimationFrame(scanQR);
     })
-    .catch(err => setStatus('Error de cámara: ' + err.message, true));
+诀.catch(() => setStatus('Error de cámara.', true));
 }
 
 function stopScanning() {
@@ -58,8 +56,7 @@ function stopScanning() {
 }
 
 function scanQR() {
-  if (!scanning) return;
-  if (video.readyState !== video.HAVE_ENOUGH_DATA) {
+  if (!scanning || video.readyState !== video.HAVE_ENOUGH_DATA) {
     requestAnimationFrame(scanQR);
     return;
   }
@@ -67,8 +64,7 @@ function scanQR() {
   canvas.height = video.videoHeight;
   canvas.width = video.videoWidth;
   ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  const code = jsQR(imageData.data, imageData.width, imageData.height);
+  const code = jsQR(ctx.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height);
 
   if (code) {
     qrData = code.data.trim();
@@ -76,40 +72,34 @@ function scanQR() {
     document.getElementById('result').style.display = 'block';
     stopScanning();
     setStatus('QR detectado. Enviando...');
-    sendToGoogleForm(); // Envío automático
+    sendToGoogleForm();
   } else {
     requestAnimationFrame(scanQR);
   }
 }
 
 async function sendToGoogleForm() {
-  if (!qrData) return;
+  if (!qrData || !getUser()) return;
 
-  const user = getUser();
-  if (!user) {
-    setStatus('Selecciona un usuario.', true);
-    return;
-  }
-
-  const payload = `qrData=${encodeURIComponent(qrData)}&user=${encodeURIComponent(user)}`;
+  const payload = `qrData=${encodeURIComponent(qrData)}&user=${encodeURIComponent(getUser())}`;
 
   try {
-    const response = await fetch(scriptUrl, {
+    const res = await fetch(scriptUrl, {
       method: 'POST',
-      mode: 'cors', // CAMBIADO A CORS PARA LEER RESPUESTA
+      mode: 'cors', // LEE LA RESPUESTA
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: payload
     });
 
-    const result = await response.json();
+    const data = await res.json();
 
-    if (result.status === 'success') {
-      setStatus(`ÉXITO: ${user} registró: ${qrData}`);
+    if (data.status === 'success') {
+      setStatus(`${getUser()} registró: ${qrData}`);
       document.getElementById('sendToGoogle').disabled = true;
-    } else if (result.status === 'duplicate') {
-      setStatus('Este QR ya fue registrado anteriormente.', true);
+    } else if (data.status === 'duplicate') {
+      setStatus('DUPLICADO: Este QR ya fue registrado.', true);
     } else {
-      setStatus('Error: ' + (result.message || 'Desconocido'), true);
+      setStatus('Error: ' + (data.message || 'Desconocido'), true);
     }
   } catch (err) {
     setStatus('Error de red: ' + err.message, true);
@@ -118,16 +108,9 @@ async function sendToGoogleForm() {
 
 function saveToCSV() {
   if (!qrData) return;
-  const user = getUser() || 'Anónimo';
-  const timestamp = new Date().toLocaleString('es-ES');
-  let data = localStorage.getItem('qrList') || '';
-  data += `"${timestamp}","${user}","${qrData.replace(/"/g, '""')}"\n`;
-  localStorage.setItem('qrList', data);
-
-  const csv = 'data:text/csv;charset=utf-8,Fecha_Hora,Usuario,Datos_QR\n' + data;
-  const link = document.createElement('a');
-  link.href = encodeURI(csv);
-  link.download = 'qr_lecturas.csv';
-  link.click();
-  setStatus('CSV descargado');
+  const csv = `data:text/csv;charset=utf-8,Fecha,Usuario,QR\n${new Date().toLocaleString()},${getUser() || 'Anónimo'},${qrData}`;
+  const a = document.createElement('a');
+  a.href = encodeURI(csv);
+  a.download = 'qr.csv';
+  a.click();
 }
