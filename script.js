@@ -4,27 +4,46 @@ let ctx = canvas.getContext('2d');
 let scanning = false;
 let qrData = '';
 let stream = null;
-let existingQRs = new Set();
+let existingQRs = new Set();  // Se cargará desde localStorage
 
 const scriptUrl = 'https://script.google.com/macros/s/AKfycbyjYTCdWr_34INkN0GoxI5w-HhGc-vS8glz20XZetlao7cMF0HPyNXzf-Umsw5XN8wq/exec';
+const STORAGE_KEY = 'scannedQRs';  // Clave para localStorage
 
 document.getElementById('startScan').addEventListener('click', startScanning);
 document.getElementById('stopScan').addEventListener('click', stopScanning);
 document.getElementById('saveToCSV').addEventListener('click', saveToCSV);
 
-// CARGAR QRs EXISTENTES
+// CARGAR QRs DE localStorage + SERVIDOR
 async function loadExistingQRs() {
   try {
+    // 1. Cargar desde localStorage
+    const localData = localStorage.getItem(STORAGE_KEY);
+    if (localData) {
+      const localQRs = JSON.parse(localData);
+      existingQRs = new Set(localQRs);
+      setStatus(`Cargados ${localQRs.length} códigos locales.`);
+    }
+
+    // 2. Cargar desde Google Sheets (para sincronizar)
     const response = await fetch(scriptUrl);
     const text = await response.text();
     if (text && text !== 'ERROR') {
-      const qrs = text.split('|').map(q => q.trim()).filter(Boolean);
-      existingQRs = new Set(qrs);
-      setStatus(`Listo: ${qrs.length} códigos cargados.`);
+      const serverQRs = text.split('|').map(q => q.trim()).filter(Boolean);
+      serverQRs.forEach(qr => existingQRs.add(qr));
+      setStatus(`Sincronizado: ${existingQRs.size} códigos totales.`);
     }
+
+    // 3. Guardar en localStorage (actualizado)
+    saveToLocalStorage();
+
   } catch (err) {
     console.warn('Error cargando QRs:', err);
+    setStatus('Modo offline: solo códigos locales.');
   }
+}
+
+function saveToLocalStorage() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(existingQRs)));
 }
 
 window.addEventListener('load', loadExistingQRs);
@@ -39,7 +58,7 @@ function getUser() {
   return document.getElementById('userSelect').value;
 }
 
-function startScanning() {
+function/startScanning() {
   if (!getUser()) {
     setStatus('Selecciona un usuario.', true);
     return;
@@ -90,7 +109,6 @@ function scanQR() {
     document.getElementById('result').style.display = 'block';
     stopScanning();
 
-    // VERIFICAR Y ENVIAR AUTOMÁTICAMENTE
     autoSaveQR();
   } else {
     requestAnimationFrame(scanQR);
@@ -101,7 +119,7 @@ async function autoSaveQR() {
   const user = getUser();
   if (!user || !qrData) return;
 
-  // VALIDACIÓN LOCAL
+  // VALIDACIÓN LOCAL (persiste entre sesiones)
   if (existingQRs.has(qrData)) {
     setStatus('DUPLICADO: Este QR ya fue registrado.', true);
     return;
@@ -109,7 +127,6 @@ async function autoSaveQR() {
 
   const payload = `qrData=${encodeURIComponent(qrData)}&user=${encodeURIComponent(user)}`;
 
-  // ENVIAR AL SERVIDOR
   fetch(scriptUrl, {
     method: 'POST',
     mode: 'no-cors',
@@ -118,10 +135,11 @@ async function autoSaveQR() {
   })
   .then(() => {
     existingQRs.add(qrData);
-    setStatus(`ÉXITO: ${user} registró: ${qrData}`, false);
+    saveToLocalStorage();  // Persistir en localStorage
+    setStatus(`ÉXITO: ${user} registró: ${qrData}`);
   })
   .catch(() => {
-    setStatus('Error de red. Intenta de nuevo.', true);
+    setStatus('Error de red. QR guardado localmente.', true);
   });
 }
 
