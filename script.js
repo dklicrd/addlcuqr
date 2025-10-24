@@ -4,49 +4,56 @@ let ctx = canvas.getContext('2d');
 let scanning = false;
 let qrData = '';
 let stream = null;
-let existingQRs = new Set();  // Se cargará desde localStorage
+let existingQRs = new Set();
 
 const scriptUrl = 'https://script.google.com/macros/s/AKfycbyjYTCdWr_34INkN0GoxI5w-HhGc-vS8glz20XZetlao7cMF0HPyNXzf-Umsw5XN8wq/exec';
-const STORAGE_KEY = 'scannedQRs';  // Clave para localStorage
+const STORAGE_KEY = 'scannedQRs';
 
-document.getElementById('startScan').addEventListener('click', startScanning);
-document.getElementById('stopScan').addEventListener('click', stopScanning);
-document.getElementById('saveToCSV').addEventListener('click', saveToCSV);
-
-// CARGAR QRs DE localStorage + SERVIDOR
-async function loadExistingQRs() {
-  try {
-    // 1. Cargar desde localStorage
-    const localData = localStorage.getItem(STORAGE_KEY);
-    if (localData) {
-      const localQRs = JSON.parse(localData);
-      existingQRs = new Set(localQRs);
-      setStatus(`Cargados ${localQRs.length} códigos locales.`);
+// CARGA INMEDIATA DESDE localStorage
+function loadFromLocalStorage() {
+  const data = localStorage.getItem(STORAGE_KEY);
+  if (data) {
+    try {
+      const qrs = JSON.parse(data);
+      existingQRs = new Set(qrs);
+      setStatus(`Cargados ${qrs.length} códigos locales.`);
+    } catch (e) {
+      console.error('Error parsing localStorage:', e);
     }
+  }
+}
 
-    // 2. Cargar desde Google Sheets (para sincronizar)
+// GUARDA EN localStorage
+function saveToLocalStorage() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(existingQRs)));
+}
+
+// SINCRONIZA CON GOOGLE SHEETS
+async function syncWithServer() {
+  try {
     const response = await fetch(scriptUrl);
     const text = await response.text();
     if (text && text !== 'ERROR') {
       const serverQRs = text.split('|').map(q => q.trim()).filter(Boolean);
       serverQRs.forEach(qr => existingQRs.add(qr));
       setStatus(`Sincronizado: ${existingQRs.size} códigos totales.`);
+      saveToLocalStorage(); // Actualiza local
     }
-
-    // 3. Guardar en localStorage (actualizado)
-    saveToLocalStorage();
-
   } catch (err) {
-    console.warn('Error cargando QRs:', err);
-    setStatus('Modo offline: solo códigos locales.');
+    console.warn('Error sincronizando:', err);
+    setStatus('Modo offline: usando memoria local.');
   }
 }
 
-function saveToLocalStorage() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(existingQRs)));
-}
+// CARGA AL INICIAR
+window.addEventListener('load', () => {
+  loadFromLocalStorage();  // Primero local
+  syncWithServer();        // Luego servidor
+});
 
-window.addEventListener('load', loadExistingQRs);
+document.getElementById('startScan').addEventListener('click', startScanning);
+document.getElementById('stopScan').addEventListener('click', stopScanning);
+document.getElementById('saveToCSV').addEventListener('click', saveToCSV);
 
 function setStatus(msg, error = false) {
   const s = document.getElementById('status');
@@ -58,7 +65,7 @@ function getUser() {
   return document.getElementById('userSelect').value;
 }
 
-function/startScanning() {
+function startScanning() {
   if (!getUser()) {
     setStatus('Selecciona un usuario.', true);
     return;
@@ -135,7 +142,7 @@ async function autoSaveQR() {
   })
   .then(() => {
     existingQRs.add(qrData);
-    saveToLocalStorage();  // Persistir en localStorage
+    saveToLocalStorage();  // Persistir inmediatamente
     setStatus(`ÉXITO: ${user} registró: ${qrData}`);
   })
   .catch(() => {
