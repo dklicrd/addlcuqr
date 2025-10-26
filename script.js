@@ -88,10 +88,12 @@ async function autoSaveQR() {
     return;
   }
 
-  const params = new URLSearchParams();
-  params.append('qrData', qrData);
-  params.append('user', user);
-  params.append('project', project);
+  // GET con parámetros (100% confiable)
+  const params = new URLSearchParams({
+    qrData: qrData,
+    user: user,
+    project: project
+  });
 
   const url = `${scriptUrl}?${params.toString()}&t=${Date.now()}`;
 
@@ -102,7 +104,7 @@ async function autoSaveQR() {
     if (text === 'SUCCESS') {
       existingQRs.add(qrData);
       saveToLocalStorage();
-      setStatus(`ÉXITO: ${user} → "${project}"`);
+      setStatus(`ÉXITO: ${user} → "${project}" → ${qrData}`);
     } else if (text === 'DUPLICATE') {
       setStatus('DUPLICADO.', true);
     } else {
