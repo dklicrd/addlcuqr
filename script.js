@@ -7,21 +7,25 @@ let existingQRs = new Set();
 const scriptUrl = 'https://script.google.com/macros/s/AKfycbyjYTCdWr_34INkN0GoxI5w-HhGc-vS8glz20XZetlao7cMF0HPyNXzf-Umsw5XN8wq/exec';
 const STORAGE_KEY = 'scannedQRs';
 
+// === EVENTOS ===
 document.getElementById('startScan').addEventListener('click', startScanning);
 document.getElementById('stopScan').addEventListener('click', stopScanning);
 document.getElementById('saveToCSV').addEventListener('click', saveToCSV);
 
-// CARGA INICIAL
+// === CARGA INICIAL ===
 window.addEventListener('load', () => {
   loadLocalQRs();
   syncWithServer();
 });
 
+// === ESTADO ===
 function setStatus(message, isError = false) {
-  document.getElementById('status').textContent = message;
-  document.getElementById('status').style.color = isError ? 'red' : '#4CAF50';
+  const statusEl = document.getElementById('status');
+  statusEl.textContent = message;
+  statusEl.style.color = isError ? 'red' : '#4CAF50';
 }
 
+// === SELECTORES ===
 function getUser() {
   return document.getElementById('userSelect').value.trim();
 }
@@ -30,17 +34,23 @@ function getProject() {
   return document.getElementById('projectSelect').value.trim();
 }
 
+// === LOCAL STORAGE ===
 function loadLocalQRs() {
   const data = localStorage.getItem(STORAGE_KEY);
   if (data) {
     try {
       existingQRs = new Set(JSON.parse(data));
     } catch (e) {
-      console.error('Error en localStorage:', e);
+      console.error('Error cargando localStorage:', e);
     }
   }
 }
 
+function saveToLocalStorage() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(existingQRs)));
+}
+
+// === SINCRONIZACIÓN CON SERVIDOR ===
 async function syncWithServer() {
   try {
     const response = await fetch(scriptUrl);
@@ -59,15 +69,11 @@ async function syncWithServer() {
     }
   } catch (err) {
     console.warn('Error sincronizando:', err);
-    setStatus('Offline: memoria local.');
+    setStatus('Modo offline: usando memoria local.');
   }
 }
 
-function saveToLocalStorage() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(existingQRs)));
-}
-
-// INICIAR ESCANEO
+// === INICIAR ESCANEO ===
 function startScanning() {
   const user = getUser();
   const project = getProject();
@@ -107,7 +113,7 @@ function startScanning() {
     });
 }
 
-// DETENER ESCANEO
+// === DETENER ESCANEO ===
 function stopScanning() {
   scanning = false;
   codeReader.reset();
@@ -120,18 +126,22 @@ function stopScanning() {
   }
 }
 
-// ENVÍO AUTOMÁTICO
+// === ENVÍO AUTOMÁTICO (POST + no-cors) ===
 async function autoSaveQR() {
   const user = getUser();
   const project = getProject();
-  if (!qrData || !user || !project) return;
+  if (!qrData || !user || !project) {
+    setStatus('Faltan datos.', true);
+    return;
+  }
 
   if (existingQRs.has(qrData)) {
     setStatus('DUPLICADO: Este código ya fue registrado.', true);
     return;
   }
 
-  const payload = `qrData=${encodeURIComponent(qrData)}&user=${encodeURIComponent(user)}&project=${encodeURIComponent(project)}`;
+  // ORDEN CLAVE: project PRIMERO
+  const payload = `project=${encodeURIComponent(project)}&user=${encodeURIComponent(user)}&qrData=${encodeURIComponent(qrData)}`;
 
   try {
     await fetch(scriptUrl, {
@@ -150,7 +160,7 @@ async function autoSaveQR() {
   }
 }
 
-// CSV LOCAL
+// === DESCARGAR CSV LOCAL ===
 function saveToCSV() {
   if (!qrData) {
     setStatus('No hay datos para guardar.', true);
@@ -164,7 +174,7 @@ function saveToCSV() {
   data += `"${timestamp}","${project}","${user}","${qrData.replace(/"/g, '""')}"\n`;
   localStorage.setItem('qrList', data);
 
-  const csv = 'data:text/csv;charset=utf-8,Fecha_Hora,Proyecto,Usuario,Datos\n' + data;
+  const csv = 'data:text/csv;charset=utf-8,Fecha_Hora,Proyecto,Usuario,Código_QR\n' + data;
   const link = document.createElement('a');
   link.href = encodeURI(csv);
   link.download = 'lecturas_qr.csv';
