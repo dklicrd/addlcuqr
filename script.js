@@ -4,7 +4,8 @@ let qrData = '';
 let stream = null;
 let existingQRs = new Set();
 
-const scriptUrl = 'https://script.google.com/macros/s/AKfycbyjYTCdWr_34INkN0GoxI5w-HhGc-vS8glz20XZetlao7cMF0HPyNXzf-Umsw5XN8wq/exec';
+// === URL FIJA (CÓPIALA DE TU DESPLIEGUE) ===
+const scriptUrl = 'https://script.google.com/macros/s/AKfycbxTEouhC5gsjPURL8rn2y6y8E7h-yhJMynBAlz8UtbrP4tBxv4JTJnmJqqAEmYRuG7s/exec';
 const STORAGE_KEY = 'scannedQRs';
 
 document.getElementById('startScan').addEventListener('click', startScanning);
@@ -89,20 +90,19 @@ async function autoSaveQR() {
     return;
   }
 
-  const payload = `project=${encodeURIComponent(String(project))}&user=${encodeURIComponent(String(user))}&qrData=${encodeURIComponent(String(qrData))}`;
+  const url = `${scriptUrl}?qrData=${encodeURIComponent(qrData)}&user=${encodeURIComponent(user)}&project=${encodeURIComponent(project)}&t=${Date.now()}`;
 
   try {
-    await fetch(scriptUrl, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: payload
-    });
+    const res = await fetch(url);
+    const text = await res.text();
 
-    existingQRs.add(qrData);
-    saveToLocalStorage();
-    setStatus(`ÉXITO: ${user} → "${project}" → ${qrData}`);
-
+    if (text === 'SUCCESS') {
+      existingQRs.add(qrData);
+      saveToLocalStorage();
+      setStatus(`ÉXITO: ${user} → "${project}"`);
+    } else {
+      setStatus('Error: ' + text, true);
+    }
   } catch (err) {
     setStatus('Error: ' + err.message, true);
   }
