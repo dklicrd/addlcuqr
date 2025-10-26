@@ -126,7 +126,7 @@ function stopScanning() {
   }
 }
 
-// === ENVÍO AUTOMÁTICO (POST + no-cors) ===
+// === ENVÍO AUTOMÁTICO ===
 async function autoSaveQR() {
   const user = getUser();
   const project = getProject();
@@ -140,7 +140,7 @@ async function autoSaveQR() {
     return;
   }
 
-  // ORDEN CLAVE: project PRIMERO
+  // ORDEN CLAVE: project PRIMERO para e.parameter
   const payload = `project=${encodeURIComponent(project)}&user=${encodeURIComponent(user)}&qrData=${encodeURIComponent(qrData)}`;
 
   try {
@@ -174,7 +174,7 @@ function saveToCSV() {
   data += `"${timestamp}","${project}","${user}","${qrData.replace(/"/g, '""')}"\n`;
   localStorage.setItem('qrList', data);
 
-  const csv = 'data:text/csv;charset=utf-8,Fecha_Hora,Proyecto,Usuario,Código_QR\n' + data;
+  const csv = 'data:text/csv;charset=utf-8,Fecha_Hora,Proyecto,Usuario,Datos\n' + data;
   const link = document.createElement('a');
   link.href = encodeURI(csv);
   link.download = 'lecturas_qr.csv';
