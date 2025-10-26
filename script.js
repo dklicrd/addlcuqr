@@ -88,18 +88,24 @@ async function autoSaveQR() {
     return;
   }
 
-  const payload = `qrData=${encodeURIComponent(qrData)}&user=${encodeURIComponent(user)}&project=${encodeURIComponent(project)}`;
-  const url = `${scriptUrl}?${payload}&t=${Date.now()}`;
+  const params = new URLSearchParams({
+    qrData: qrData,
+    user: user,
+    project: project
+  });
+
+  const url = `${scriptUrl}?${params.toString()}&t=${Date.now()}`;
 
   try {
     const res = await fetch(url, { mode: 'cors' });
     const text = await res.text();
-    console.log('RESPUESTA:', text);
 
-    if (text.includes('SUCCESS') || text.includes('DUPLICATE')) {
+    if (text === 'SUCCESS') {
       existingQRs.add(qrData);
       saveToLocalStorage();
       setStatus(`ÉXITO: ${user} → "${project}"`);
+    } else if (text === 'DUPLICATE') {
+      setStatus('DUPLICADO.', true);
     } else {
       setStatus('Error: ' + text, true);
     }
