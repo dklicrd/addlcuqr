@@ -83,18 +83,25 @@ async function autoSaveQR() {
   const url = `${scriptUrl}?${params.toString()}&t=${Date.now()}`;
 
   try {
-    const res = await fetch(url);
-    const text = await res.text();
+    const res = await fetch(url, {
+      method: 'GET',
+      mode: 'cors',
+      cache: 'no-cache'
+    });
 
-    if (text === 'SUCCESS') {
+    const json = await res.json();
+
+    if (json.status === 'SUCCESS') {
       existingQRs.add(qrData);
       saveToLocalStorage();
       setStatus(`ÉXITO: ${user} → "${project}"`);
+    } else if (json.status === 'DUPLICATE') {
+      setStatus('DUPLICADO.', true);
     } else {
-      setStatus('Error: ' + text, true);
+      setStatus('Error: ' + json.message, true);
     }
   } catch (err) {
-    setStatus('Error: ' + err.message, true);
+    setStatus('Error de red: ' + err.message, true);
   }
 }
 
