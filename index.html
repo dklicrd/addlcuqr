@@ -3,30 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Escanear QR y/o Códigos de Barras del LCU</title>
+  <title>Escáner QR y Códigos de Barra</title>
   <link rel="stylesheet" href="styles.css">
-  <script src="https://unpkg.com/@zxing/library@latest"></script> <!-- Librería para QR y códigos de barra -->
 </head>
 <body>
   <div class="container">
-    <h1>Lcu Escáner QR y Códigos de Barra</h1>
-
-    <!-- Select de Usuario -->
-    <div style="margin: 10px 0;">
-      <label for="userSelect">Usuario:</label>
-      <select id="userSelect" required>
-        <option value="">Selecciona un usuario</option>
-        <option value="Ana">Ana</option>
-        <option value="Juan">Juan</option>
-        <option value="Luis">Luis</option>
-        <option value="María">María</option>
-        <option value="Pedro">Pedro</option>
-      </select>
-    </div>
-<!-- Select de Proyecto (nuevo) -->
-    <div style="margin: 10px 0;">
-      <label for="projectSelect">Proyecto:</label>
-      <select id="projectSelect" required>
+    <h1>Escáner QR y Códigos de Barra</h1>
+    
+    <!-- Select de Proyecto (nuevo) -->
+    <div style="margin: 20px 0; text-align: center;">
+      <label for="projectSelect"><strong>Proyecto:</strong></label>
+      <select id="projectSelect" required style="padding: 10px; font-size: 16px; width: 100%; margin-top: 8px;">
         <option value="">Selecciona un proyecto</option>
         <option value="Proyecto A">Proyecto A</option>
         <option value="Proyecto B">Proyecto B</option>
@@ -35,24 +22,38 @@
         <option value="Proyecto E">Proyecto E</option>
       </select>
     </div>
-    <video id="video" autoplay playsinline></video>
+
+    <!-- Select de Usuario -->
+    <div style="margin: 20px 0; text-align: center;">
+      <label for="userSelect"><strong>Usuario:</strong></label>
+      <select id="userSelect" required style="padding: 10px; font-size: 16px; width: 100%; margin-top: 8px;">
+        <option value="">Selecciona tu nombre</option>
+        <option value="Ana">Ana</option>
+        <option value="Juan">Juan</option>
+        <option value="Luis">Luis</option>
+        <option value="María">María</option>
+        <option value="Pedro">Pedro</option>
+      </select>
+    </div>
+
+    <video id="video" width="100%" height="auto" autoplay playsinline></video>
     <canvas id="canvas" style="display: none;"></canvas>
 
     <div class="buttons">
-      <button id="startScan">Iniciar Escaneo</button>
-      <button id="stopScan" style="display: none;">Detener Escaneo</button>
+      <button id="startScan">Escanear</button>
+      <button id="stopScan" style="display: none;">Detener</button>
     </div>
 
-    <div id="status"></div>
+    <p id="status"></p>
 
-    <div id="result" style="display: none; margin-top: 20px;">
+    <div id="result" style="display: none;">
       <h2>Datos:</h2>
       <p id="qrData"></p>
-      <button id="saveToCSV">Descargar como CSV</button>
+      <button id="saveToCSV">Descargar CSV</button>
     </div>
   </div>
 
+  <script src="https://unpkg.com/@zxing/library@latest/umd/index.min.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
-
