@@ -1,21 +1,34 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Escáner QR</title>
-  <link rel="stylesheet" href="styles.css" />
-  <script src="https://unpkg.com/jsqr@1.4.0/dist/jsQR.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Escanear QR y/o Códigos de Barras del LCU</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://unpkg.com/@zxing/library@latest"></script> <!-- Librería para QR y códigos de barra -->
 </head>
 <body>
   <div class="container">
-    <h1>Escáner QR</h1>
+    <h1>Lcu Escáner QR y Códigos de Barra</h1>
 
-    <!-- SELECT DE USUARIO -->
-    <div style="margin: 20px 0; text-align: center;">
-      <label for="userSelect"><strong>Usuario:</strong></label>
-      <select id="userSelect" required style="padding: 10px; font-size: 16px; width: 100%; margin-top: 8px;">
-        <option value="">Selecciona tu nombre</option>
+    <!-- Select de Proyecto (nuevo) -->
+    <div style="margin: 10px 0;">
+      <label for="projectSelect">Proyecto:</label>
+      <select id="projectSelect" required>
+        <option value="">Selecciona un proyecto</option>
+        <option value="Proyecto A">Proyecto A</option>
+        <option value="Proyecto B">Proyecto B</option>
+        <option value="Proyecto C">Proyecto C</option>
+        <option value="Proyecto D">Proyecto D</option>
+        <option value="Proyecto E">Proyecto E</option>
+      </select>
+    </div>
+
+    <!-- Select de Usuario -->
+    <div style="margin: 10px 0;">
+      <label for="userSelect">Usuario:</label>
+      <select id="userSelect" required>
+        <option value="">Selecciona un usuario</option>
         <option value="Ana">Ana</option>
         <option value="Juan">Juan</option>
         <option value="Luis">Luis</option>
@@ -29,22 +42,18 @@
 
     <div class="buttons">
       <button id="startScan">Iniciar Escaneo</button>
-      <button id="stopScan" style="display: none;">Detener</button>
+      <button id="stopScan" style="display: none;">Detener Escaneo</button>
     </div>
 
     <div id="status"></div>
 
-    <!-- Resultado -->
-    <div id="result" style="display: none; margin-top: 20px; text-align: center;">
-      <h3>Datos del QR:</h3>
-      <p id="qrData" style="word-break: break-all; background: #f0f0f0; padding: 10px; border-radius: 5px;"></p>
-      <div class="buttons">
-              <button id="saveToCSV">Guardar en CSV</button>
-      </div>
+    <div id="result" style="display: none; margin-top: 20px;">
+      <h2>Datos:</h2>
+      <p id="qrData"></p>
+      <button id="saveToCSV">Descargar como CSV</button>
     </div>
   </div>
 
   <script src="script.js"></script>
 </body>
 </html>
-
