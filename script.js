@@ -21,9 +21,8 @@ window.addEventListener('load', () => {
 });
 
 function setStatus(message, isError = false) {
-  const status = document.getElementById('status');
-  status.textContent = message;
-  status.style.color = isError ? 'red' : '#4CAF50';
+  document.getElementById('status').textContent = message;
+  document.getElementById('status').style.color = isError ? 'red' : '#4CAF50';
 }
 
 function getUser() {
@@ -59,11 +58,9 @@ async function syncWithServer() {
         }
       });
       if (added > 0) saveToLocalStorage();
-      setStatus(`Sincronizado: +${added} códigos. Total: ${existingQRs.size}`);
     }
   } catch (err) {
     console.warn('Error sincronizando:', err);
-    setStatus('Offline: memoria local.');
   }
 }
 
@@ -93,7 +90,6 @@ function startScanning() {
       document.getElementById('result').style.display = 'none';
       setStatus('Escaneando...');
 
-      // ZXing escaneo continuo
       codeReader.decodeFromVideoDevice(undefined, 'video', (result, err) => {
         if (result && scanning) {
           qrData = result.text.trim();
@@ -125,7 +121,7 @@ function stopScanning() {
   }
 }
 
-// === ENVÍO AUTOMÁTICO ===
+// === ENVÍO AUTOMÁTICO (CORREGIDO) ===
 async function autoSaveQR() {
   const user = getUser();
   const project = getProject();
@@ -136,18 +132,13 @@ async function autoSaveQR() {
     return;
   }
 
-  // PAYLOAD COMO JSON (SOLUCIÓN AL PARSING)
-  const payload = JSON.stringify({
-    qrData: qrData,
-    user: user,
-    project: project
-  });
+  const payload = `qrData=${encodeURIComponent(qrData)}&user=${encodeURIComponent(user)}&project=${encodeURIComponent(project)}`;
 
   try {
     await fetch(scriptUrl, {
       method: 'POST',
       mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: payload
     });
 
@@ -156,7 +147,7 @@ async function autoSaveQR() {
     setStatus(`ÉXITO: ${user} registró en "${project}": ${qrData}`);
 
   } catch (err) {
-    setStatus('Error de red: ' + err.message, true);
+    setStatus('Error de red.', true);
   }
 }
 
@@ -179,5 +170,5 @@ function saveToCSV() {
   link.href = encodeURI(csv);
   link.download = 'lecturas_qr.csv';
   link.click();
-  setStatus('CSV descargado (respaldo local)');
+  setStatus('CSV descargado');
 }
