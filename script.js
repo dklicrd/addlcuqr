@@ -88,11 +88,10 @@ async function autoSaveQR() {
     return;
   }
 
-  const params = new URLSearchParams({
-    qrData: qrData,
-    user: user,
-    project: project
-  });
+  const params = new URLSearchParams();
+  params.append('qrData', qrData);
+  params.append('user', user);
+  params.append('project', project);
 
   const url = `${scriptUrl}?${params.toString()}&t=${Date.now()}`;
 
