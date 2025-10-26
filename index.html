@@ -11,19 +11,6 @@
   <div class="container">
     <h1>Lcu Escáner QR y Códigos de Barra</h1>
 
-    <!-- Select de Proyecto (nuevo) -->
-    <div style="margin: 10px 0;">
-      <label for="projectSelect">Proyecto:</label>
-      <select id="projectSelect" required>
-        <option value="">Selecciona un proyecto</option>
-        <option value="Proyecto A">Proyecto A</option>
-        <option value="Proyecto B">Proyecto B</option>
-        <option value="Proyecto C">Proyecto C</option>
-        <option value="Proyecto D">Proyecto D</option>
-        <option value="Proyecto E">Proyecto E</option>
-      </select>
-    </div>
-
     <!-- Select de Usuario -->
     <div style="margin: 10px 0;">
       <label for="userSelect">Usuario:</label>
@@ -36,7 +23,18 @@
         <option value="Pedro">Pedro</option>
       </select>
     </div>
-
+<!-- Select de Proyecto (nuevo) -->
+    <div style="margin: 10px 0;">
+      <label for="projectSelect">Proyecto:</label>
+      <select id="projectSelect" required>
+        <option value="">Selecciona un proyecto</option>
+        <option value="Proyecto A">Proyecto A</option>
+        <option value="Proyecto B">Proyecto B</option>
+        <option value="Proyecto C">Proyecto C</option>
+        <option value="Proyecto D">Proyecto D</option>
+        <option value="Proyecto E">Proyecto E</option>
+      </select>
+    </div>
     <video id="video" autoplay playsinline></video>
     <canvas id="canvas" style="display: none;"></canvas>
 
@@ -57,3 +55,4 @@
   <script src="script.js"></script>
 </body>
 </html>
+
