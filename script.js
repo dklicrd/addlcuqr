@@ -32,7 +32,7 @@ function loadLocalQRs() {
 
 async function syncWithServer() {
   try {
-    const res = await fetch(scriptUrl);
+    const res = await fetch(scriptUrl + '?sync=1'); // ← Añade parámetro
     const text = await res.text();
     if (text) text.split('|').forEach(q => existingQRs.add(q.trim()));
     saveToLocalStorage();
@@ -89,7 +89,7 @@ async function autoSaveQR() {
     return;
   }
 
-  const url = `${scriptUrl}?project=${encodeURIComponent(project)}&user=${encodeURIComponent(user)}&qrData=${encodeURIComponent(qrData)}&t=${Date.now()}`;
+  const url = `${scriptUrl}?project=${encodeURIComponent(project)}&user=${encodeURIComponent(user)}&qrData=${encodeURIComponent(qrData)}`;
 
   try {
     const res = await fetch(url);
@@ -98,9 +98,7 @@ async function autoSaveQR() {
     if (text === 'SUCCESS') {
       existingQRs.add(qrData);
       saveToLocalStorage();
-      setStatus(`ÉXITO: ${user} → "${project}"`);
-    } else if (text === 'DUPLICATE') {
-      setStatus('DUPLICADO.', true);
+      setStatus(`ÉXITO: ${project} → ${user}`);
     } else {
       setStatus('Error: ' + text, true);
     }
