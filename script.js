@@ -1,33 +1,16 @@
 let video = document.getElementById('video');
-let canvas = document.getElementById('canvas');
-let ctx = canvas.getContext('2d');
+let codeReader = new ZXing.BrowserMultiFormatReader();
 let scanning = false;
 let qrData = '';
 let stream = null;
 let existingQRs = new Set();
 
 const scriptUrl = 'https://script.google.com/macros/s/AKfycbyjYTCdWr_34INkN0GoxI5w-HhGc-vS8glz20XZetlao7cMF0HPyNXzf-Umsw5XN8wq/exec';
-
-window.addEventListener('load', () => {
-  loadExistingQRs();
-});
+const STORAGE_KEY = 'scannedQRs';
 
 document.getElementById('startScan').addEventListener('click', startScanning);
 document.getElementById('stopScan').addEventListener('click', stopScanning);
 document.getElementById('saveToCSV').addEventListener('click', saveToCSV);
-
-function setStatus(message, isError = false) {
-  document.getElementById('status').textContent = message;
-  document.getElementById('status').style.color = isError ? 'red' : 'black';
-}
-
-function getUser() {
-  return document.getElementById('userSelect').value;
-}
-
-function getProject() {
-  return document.getElementById('projectSelect').value;
-}
 
 async function loadExistingQRs() {
   try {
@@ -41,6 +24,21 @@ async function loadExistingQRs() {
   } catch (err) {
     console.warn('Error cargando QRs:', err);
   }
+}
+
+window.addEventListener('load', loadExistingQRs);
+
+function setStatus(message, isError = false) {
+  document.getElementById('status').textContent = message;
+  document.getElementById('status').style.color = isError ? 'red' : '#4CAF50';
+}
+
+function getUser() {
+  return document.getElementById('userSelect').value;
+}
+
+function getProject() {
+  return document.getElementById('projectSelect').value;
 }
 
 function startScanning() {
@@ -67,7 +65,7 @@ function startScanning() {
       stream = mediaStream;
       video.srcObject = stream;
       video.play();
-      requestAnimationFrame(scanQR);
+      scanCode();  // Inicia el escaneo con ZXing
     })
     .catch(err => {
       setStatus('Error de cámara: ' + err.message, true);
@@ -82,27 +80,22 @@ function stopScanning() {
   if (stream) stream.getTracks().forEach(track => track.stop());
 }
 
-function scanQR() {
+function scanCode() {
   if (!scanning) return;
 
-  if (video.readyState === video.HAVE_ENOUGH_DATA) {
-    canvas.height = video.videoHeight;
-    canvas.width = video.videoWidth;
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    let code = jsQR(imageData.data, imageData.width, imageData.height);
-
-    if (code) {
-      qrData = code.data;
+  codeReader.decodeOnceFromStream(stream, video)
+    .then(result => {
+      qrData = result.text.trim();
       document.getElementById('qrData').textContent = qrData;
       document.getElementById('result').style.display = 'block';
       stopScanning();
-      setStatus('QR detectado!');
-      autoSaveQR();  // Envío automático
-      return;
-    }
-  }
-  requestAnimationFrame(scanQR);
+      setStatus('Código detectado. Verificando...');
+      autoSaveQR();
+    })
+    .catch(err => {
+      console.error(err);
+      setStatus('No se detectó código. Intenta de nuevo.', true);
+    });
 }
 
 async function autoSaveQR() {
@@ -143,8 +136,6 @@ function saveToCSV() {
   const link = document.createElement('a');
   link.href = encodeURI(csv);
   link.download = 'qr_data.csv';
-  document.body.appendChild(link);
   link.click();
-  document.body.removeChild(link);
   setStatus('CSV descargado');
 }
