@@ -13,7 +13,6 @@ document.getElementById('saveToCSV').addEventListener('click', saveToCSV);
 
 window.addEventListener('load', () => {
   loadLocalQRs();
-  setStatus('Listo.');
 });
 
 function setStatus(message, isError = false) {
@@ -73,28 +72,26 @@ function stopScanning() {
 
 async function autoSaveQR() {
   const user = getUser(), project = getProject();
-
-  setStatus(`Enviando: PROYECTO="${project}" | USUARIO="${user}" | QR="${qrData}"`);
-
-  if (!qrData || !user || !project) {
-    setStatus('Faltan datos.', true);
-    return;
-  }
+  if (!qrData || !user || !project) return;
 
   if (existingQRs.has(qrData)) {
     setStatus('DUPLICADO.', true);
     return;
   }
 
-  const url = `${scriptUrl}?project=${encodeURIComponent(project)}&user=${encodeURIComponent(user)}&qrData=${encodeURIComponent(qrData)}`;
+  const params = new URLSearchParams({ project, user, qrData });
+  const url = `${scriptUrl}?${params.toString()}&t=${Date.now()}`;
 
   try {
     const res = await fetch(url);
     const text = await res.text();
-    setStatus(`Respuesta: ${text}`);
+
     if (text === 'SUCCESS') {
       existingQRs.add(qrData);
       saveToLocalStorage();
+      setStatus(`ÉXITO: ${user} → "${project}"`);
+    } else {
+      setStatus('Error: ' + text, true);
     }
   } catch (err) {
     setStatus('Error: ' + err.message, true);
