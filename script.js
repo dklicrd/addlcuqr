@@ -21,8 +21,9 @@ window.addEventListener('load', () => {
 });
 
 function setStatus(message, isError = false) {
-  document.getElementById('status').textContent = message;
-  document.getElementById('status').style.color = isError ? 'red' : '#4CAF50';
+  const status = document.getElementById('status');
+  status.textContent = message;
+  status.style.color = isError ? 'red' : '#4CAF50';
 }
 
 function getUser() {
@@ -58,9 +59,11 @@ async function syncWithServer() {
         }
       });
       if (added > 0) saveToLocalStorage();
+      setStatus(`Sincronizado: +${added} códigos. Total: ${existingQRs.size}`);
     }
   } catch (err) {
     console.warn('Error sincronizando:', err);
+    setStatus('Offline: memoria local.');
   }
 }
 
@@ -80,6 +83,7 @@ function startScanning() {
   navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
     .then(mediaStream => {
       stream = mediaStream;
+      const video = document.getElementById('video');
       video.srcObject = stream;
       video.play();
 
@@ -87,7 +91,7 @@ function startScanning() {
       document.getElementById('startScan').style.display = 'none';
       document.getElementById('stopScan').style.display = 'block';
       document.getElementById('result').style.display = 'none';
-      setStatus('Escaneando... Apunta al código.');
+      setStatus('Escaneando...');
 
       // ZXing escaneo continuo
       codeReader.decodeFromVideoDevice(undefined, 'video', (result, err) => {
@@ -100,7 +104,6 @@ function startScanning() {
         }
         if (err && !(err instanceof ZXing.NotFoundException)) {
           console.error('ZXing error:', err);
-          setStatus('Error en escaneo.', true);
         }
       });
     })
@@ -112,7 +115,7 @@ function startScanning() {
 // === DETENER ESCANEO ===
 function stopScanning() {
   scanning = false;
-  codeReader.reset(); // Detiene ZXing
+  codeReader.reset();
   document.getElementById('startScan').style.display = 'block';
   document.getElementById('stopScan').style.display = 'none';
   setStatus('');
@@ -133,6 +136,7 @@ async function autoSaveQR() {
     return;
   }
 
+  // PAYLOAD COMO JSON (SOLUCIÓN AL PARSING)
   const payload = JSON.stringify({
     qrData: qrData,
     user: user,
