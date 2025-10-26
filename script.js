@@ -1,4 +1,4 @@
-// === ZXing para QR y códigos de barra ===
+// === ZXing para QR y códigos de barra (1D/2D) ===
 let codeReader = new ZXing.BrowserMultiFormatReader();
 let scanning = false;
 let qrData = '';
@@ -14,7 +14,7 @@ document.getElementById('startScan').addEventListener('click', startScanning);
 document.getElementById('stopScan').addEventListener('click', stopScanning);
 document.getElementById('saveToCSV').addEventListener('click', saveToCSV);
 
-// === CARGA INICIAL ===
+// === CARGA INICIAL: localStorage + sincronización con Sheets ===
 window.addEventListener('load', () => {
   loadLocalQRs();
   syncWithServer();
@@ -35,24 +35,27 @@ function getProject() {
   return document.getElementById('projectSelect').value.trim();
 }
 
+// Cargar códigos guardados en localStorage
 function loadLocalQRs() {
   const data = localStorage.getItem(STORAGE_KEY);
   if (data) {
     try {
       existingQRs = new Set(JSON.parse(data));
     } catch (e) {
-      console.error('Error cargando localStorage:', e);
+      console.error('Error en localStorage:', e);
     }
   }
 }
 
+// Guardar en localStorage
 function saveToLocalStorage() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(existingQRs)));
 }
 
+// Sincronizar con Google Sheets (solo GET)
 async function syncWithServer() {
   try {
-    const response = await fetch(scriptUrl, { mode: 'cors' });
+    const response = await fetch(scriptUrl);
     const text = await response.text();
     if (text && text !== 'ERROR') {
       const serverQRs = text.split('|').map(q => q.trim()).filter(Boolean);
@@ -63,16 +66,16 @@ async function syncWithServer() {
           added++;
         }
       });
-      saveToLocalStorage();
-      setStatus(`Sincronizado: +${added} códigos. Total: ${existingQRs.size}`);
+      if (added > 0) saveToLocalStorage();
+      setStatus(`Sincronizado: +${added} códigos nuevos. Total: ${existingQRs.size}`);
     }
   } catch (err) {
-    console.warn('Error sincronizando:', err);
+    console.warn('Error sincronizando con Sheets:', err);
     setStatus('Offline: usando memoria local.');
   }
 }
 
-// === ESCANEO ===
+// === INICIAR ESCANEO ===
 function startScanning() {
   const user = getUser();
   const project = getProject();
@@ -93,7 +96,7 @@ function startScanning() {
       document.getElementById('startScan').style.display = 'none';
       document.getElementById('stopScan').style.display = 'block';
       document.getElementById('result').style.display = 'none';
-      setStatus('Escaneando... Apunta al código.');
+      setStatus('Escaneando... Apunta al código QR o de barras.');
 
       // ZXing escanea continuamente
       codeReader.decodeFromVideoDevice(undefined, 'video', (result, err) => {
@@ -105,7 +108,7 @@ function startScanning() {
           autoSaveQR();
         }
         if (err && !(err instanceof ZXing.NotFoundException)) {
-          console.error(err);
+          console.error('Error ZXing:', err);
         }
       });
     })
@@ -114,9 +117,10 @@ function startScanning() {
     });
 }
 
+// === DETENER ESCANEO ===
 function stopScanning() {
   scanning = false;
-  codeReader.reset(); // Detiene ZXing
+  codeReader.reset();
   document.getElementById('startScan').style.display = 'block';
   document.getElementById('stopScan').style.display = 'none';
   setStatus('');
@@ -126,12 +130,13 @@ function stopScanning() {
   }
 }
 
-// === ENVÍO AUTOMÁTICO CON CORS ===
+// === ENVÍO AUTOMÁTICO CON no-cors + postData ===
 async function autoSaveQR() {
   const user = getUser();
   const project = getProject();
   if (!qrData || !user || !project) return;
 
+  // Validación local (duplicados)
   if (existingQRs.has(qrData)) {
     setStatus('DUPLICADO: Este código ya fue registrado.', true);
     return;
@@ -140,30 +145,24 @@ async function autoSaveQR() {
   const payload = `qrData=${encodeURIComponent(qrData)}&user=${encodeURIComponent(user)}&project=${encodeURIComponent(project)}`;
 
   try {
-    const response = await fetch(scriptUrl, {
+    await fetch(scriptUrl, {
       method: 'POST',
-      mode: 'cors',
+      mode: 'no-cors',  // NECESARIO para que Apps Script lea e.postData
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: payload
     });
 
-    const text = await response.text();
+    // ASUMIMOS ÉXITO (no-cors no permite leer respuesta)
+    existingQRs.add(qrData);
+    saveToLocalStorage();
+    setStatus(`ÉXITO: ${user} registró en "${project}": ${qrData}`);
 
-    if (text.includes('SUCCESS')) {
-      existingQRs.add(qrData);
-      saveToLocalStorage();
-      setStatus(`ÉXITO: ${user} registró en "${project}": ${qrData}`);
-    } else if (text.includes('DUPLICATE')) {
-      setStatus('DUPLICADO: Ya registrado.', true);
-    } else {
-      setStatus('Error del servidor: ' + text, true);
-    }
   } catch (err) {
-    setStatus('Error de red: ' + err.message, true);
+    setStatus('Error de red. Intenta de nuevo.', true);
   }
 }
 
-// === CSV LOCAL ===
+// === DESCARGAR CSV LOCAL ===
 function saveToCSV() {
   if (!qrData) {
     setStatus('No hay datos para guardar.', true);
@@ -182,5 +181,5 @@ function saveToCSV() {
   link.href = encodeURI(csv);
   link.download = 'lecturas_qr.csv';
   link.click();
-  setStatus('CSV descargado');
+  setStatus('CSV descargado (respaldo local)');
 }
