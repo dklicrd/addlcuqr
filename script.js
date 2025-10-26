@@ -32,11 +32,15 @@ function loadLocalQRs() {
 
 async function syncWithServer() {
   try {
-    const res = await fetch(scriptUrl + '?sync=1'); // ← Añade parámetro
+    const res = await fetch(scriptUrl);
     const text = await res.text();
-    if (text) text.split('|').forEach(q => existingQRs.add(q.trim()));
+    if (text) {
+      text.split('|').forEach(q => existingQRs.add(q.trim()));
+    }
     saveToLocalStorage();
-  } catch (e) { console.warn(e); }
+  } catch (e) {
+    console.warn('Sync falló:', e);
+  }
 }
 
 function saveToLocalStorage() {
