@@ -4,7 +4,7 @@ let qrData = '';
 let stream = null;
 let existingQRs = new Set();
 
-const scriptUrl = 'TU_NUEVA_URL_AQUI';  // Pega tu URL nueva de despliegue
+const scriptUrl = 'https://script.google.com/macros/s/AKfycbyjYTCdWr_34INkN0GoxI5w-HhGc-vS8glz20XZetlao7cMF0HPyNXzf-Umsw5XN8wq/exec';
 const STORAGE_KEY = 'scannedQRs';
 
 document.getElementById('startScan').addEventListener('click', startScanning);
@@ -110,7 +110,7 @@ async function autoSaveQR() {
       setStatus('Error: ' + text, true);
     }
   } catch (err) {
-    setStatus('Error de red: ' + err.message, true);
+    setStatus('Error: ' + err.message, true);
   }
 }
 
