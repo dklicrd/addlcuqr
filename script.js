@@ -4,7 +4,7 @@ let qrData = '';
 let stream = null;
 let existingQRs = new Set();
 
-const scriptUrl = 'https://script.google.com/macros/s/AKfycbyjYTCdWr_34INkN0GoxI5w-HhGc-vS8glz20XZetlao7cMF0HPyNXzf-Umsw5XN8wq/exec';
+const scriptUrl = 'TU_NUEVA_URL_AQUI';  // Pega tu URL nueva de despliegue
 const STORAGE_KEY = 'scannedQRs';
 
 document.getElementById('startScan').addEventListener('click', startScanning);
@@ -88,7 +88,6 @@ async function autoSaveQR() {
     return;
   }
 
-  // GET con parámetros (100% confiable)
   const params = new URLSearchParams({
     qrData: qrData,
     user: user,
@@ -98,7 +97,7 @@ async function autoSaveQR() {
   const url = `${scriptUrl}?${params.toString()}&t=${Date.now()}`;
 
   try {
-    const res = await fetch(url, { mode: 'cors' });
+    const res = await fetch(url);
     const text = await res.text();
 
     if (text === 'SUCCESS') {
@@ -111,7 +110,7 @@ async function autoSaveQR() {
       setStatus('Error: ' + text, true);
     }
   } catch (err) {
-    setStatus('Error: ' + err.message, true);
+    setStatus('Error de red: ' + err.message, true);
   }
 }
 
