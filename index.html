@@ -23,13 +23,19 @@
       text-align: center;
       color: #333;
     }
-    select, button {
+    select, button, textarea {
       width: 100%;
       padding: 12px;
       margin: 10px 0;
       border: 1px solid #ddd;
       border-radius: 5px;
       font-size: 16px;
+      box-sizing: border-box;
+    }
+    textarea {
+      height: 80px;
+      resize: vertical;
+      font-family: Arial, sans-serif;
     }
     button {
       background-color: #007cba;
@@ -86,6 +92,14 @@
       margin: 0 10px;
       cursor: pointer;
     }
+    .form-group {
+      margin-bottom: 15px;
+    }
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
   </style>
   <script src="https://unpkg.com/jsqr@1.4.0/dist/jsQR.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/quagga@0.12.1/dist/quagga.min.js"></script>
@@ -95,8 +109,8 @@
     <h1>Escanea QR y Códigos de Barras</h1>
 
     <!-- SELECT DE USUARIO -->
-    <div>
-      <label for="userSelect"><strong>Usuario:</strong></label>
+    <div class="form-group">
+      <label for="userSelect">Usuario:</label>
       <select id="userSelect" required>
         <option value="">Selecciona tu nombre</option>
         <option value="Ana">Ana</option>
@@ -108,8 +122,8 @@
     </div>
 
     <!-- SELECT DE PROYECTO -->
-    <div>
-      <label for="projectSelect"><strong>Proyecto:</strong></label>
+    <div class="form-group">
+      <label for="projectSelect">Proyecto:</label>
       <select id="projectSelect" required>
         <option value="">Selecciona el Proyecto</option>
         <option value="Hyatt">Hyatt</option>
@@ -118,6 +132,12 @@
         <option value="Magestic">Magestic</option>
         <option value="Otros">Otros</option>
       </select>
+    </div>
+
+    <!-- CAMPO DE COMENTARIOS -->
+    <div class="form-group">
+      <label for="comments">Comentarios (opcional):</label>
+      <textarea id="comments" placeholder="Escribe aquí cualquier comentario adicional..."></textarea>
     </div>
 
     <!-- TIPO DE ESCÁNER -->
@@ -165,6 +185,7 @@
     // Elementos DOM
     const userSelect = document.getElementById('userSelect');
     const projectSelect = document.getElementById('projectSelect');
+    const commentsInput = document.getElementById('comments');
     const startScanBtn = document.getElementById('startScan');
     const stopScanBtn = document.getElementById('stopScan');
     const saveDataBtn = document.getElementById('saveData');
@@ -349,6 +370,7 @@
       const user = userSelect.value;
       const project = projectSelect.value;
       const qrData = currentQRData;
+      const comments = commentsInput.value.trim();
 
       // Validaciones
       if (!user) {
@@ -375,9 +397,10 @@
         formData.append('user', user);
         formData.append('project', project);
         formData.append('qrData', qrData);
+        formData.append('comments', comments);
 
         console.log('Enviando datos a:', SCRIPT_URL);
-        console.log('Datos:', { user, project, qrData });
+        console.log('Datos:', { user, project, qrData, comments });
 
         const response = await fetch(SCRIPT_URL, {
           method: 'POST',
@@ -399,10 +422,11 @@
         if (result.includes('ÉXITO')) {
           showStatus('✓ Datos guardados exitosamente en Google Sheets', 'success');
           
-          // Ocultar resultado después de éxito
+          // Limpiar formulario después de éxito
           setTimeout(() => {
             resultDiv.classList.add('hidden');
             currentQRData = '';
+            commentsInput.value = ''; // Limpiar comentarios
           }, 3000);
           
         } else if (result.includes('DUPLICADO')) {
