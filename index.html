@@ -78,12 +78,6 @@
     .hidden {
       display: none;
     }
-    .url-setup {
-      background: #fff3cd;
-      padding: 15px;
-      border-radius: 5px;
-      margin: 15px 0;
-    }
     .scanner-type {
       margin: 15px 0;
       text-align: center;
@@ -99,16 +93,6 @@
 <body>
   <div class="container">
     <h1>Escanea QR y Códigos de Barras</h1>
-
-    <!-- CONFIGURACIÓN DE URL -->
-    <div class="url-setup">
-      <label for="scriptUrl"><strong>URL de Google Apps Script:</strong></label>
-      <input type="text" id="scriptUrl" placeholder="Pega aquí la URL de tu Web App" style="width: 100%; padding: 10px; margin: 5px 0; border: 1px solid #ddd; border-radius: 5px;">
-      <button id="saveUrl" style="background: #28a745; margin: 5px 0;">Guardar URL</button>
-      <p style="font-size: 12px; margin: 5px 0 0 0; color: #666;">
-        ⓘ Obtén esta URL desde: Google Apps Script → Publicar → Implementar como aplicación web
-      </p>
-    </div>
 
     <!-- SELECT DE USUARIO -->
     <div>
@@ -175,11 +159,12 @@
   </div>
 
   <script>
+    // URL fija de Google Apps Script
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzDgU6Q-xRgUgotBXSgXVN0OXEXw4UaSncSIrRkq1rJPgQjfhmxnNhhrHP9RhwTdc5g/exec';
+
     // Elementos DOM
     const userSelect = document.getElementById('userSelect');
     const projectSelect = document.getElementById('projectSelect');
-    const scriptUrlInput = document.getElementById('scriptUrl');
-    const saveUrlBtn = document.getElementById('saveUrl');
     const startScanBtn = document.getElementById('startScan');
     const stopScanBtn = document.getElementById('stopScan');
     const saveDataBtn = document.getElementById('saveData');
@@ -196,30 +181,7 @@
     let stream = null;
     let scanning = false;
     let currentQRData = '';
-    let SCRIPT_URL = '';
     let quaggaInitialized = false;
-
-    // Cargar URL guardada
-    function loadSavedUrl() {
-      const savedUrl = localStorage.getItem('googleScriptUrl');
-      if (savedUrl) {
-        scriptUrlInput.value = savedUrl;
-        SCRIPT_URL = savedUrl;
-        showStatus('URL cargada correctamente', 'success');
-      }
-    }
-
-    // Guardar URL
-    saveUrlBtn.addEventListener('click', function() {
-      const url = scriptUrlInput.value.trim();
-      if (url) {
-        localStorage.setItem('googleScriptUrl', url);
-        SCRIPT_URL = url;
-        showStatus('URL guardada correctamente', 'success');
-      } else {
-        showStatus('Por favor ingresa una URL válida', 'error');
-      }
-    });
 
     // Función para mostrar mensajes de estado
     function showStatus(message, type = 'info') {
@@ -231,16 +193,6 @@
     // Función para ocultar mensajes de estado
     function hideStatus() {
       statusDiv.style.display = 'none';
-    }
-
-    // Función para validar URL
-    function isValidUrl(string) {
-      try {
-        new URL(string);
-        return true;
-      } catch (_) {
-        return false;
-      }
     }
 
     // Obtener tipo de escáner seleccionado
@@ -308,12 +260,6 @@
 
     // Función para iniciar la cámara
     async function startCamera() {
-      // Validar que la URL esté configurada
-      if (!SCRIPT_URL || !isValidUrl(SCRIPT_URL)) {
-        showStatus('Por favor configura primero la URL de Google Apps Script', 'error');
-        return;
-      }
-
       // Validar selecciones
       if (!userSelect.value) {
         showStatus('Por favor selecciona un usuario', 'error');
@@ -405,11 +351,6 @@
       const qrData = currentQRData;
 
       // Validaciones
-      if (!SCRIPT_URL) {
-        showStatus('URL no configurada. Configúrala arriba.', 'error');
-        return;
-      }
-
       if (!user) {
         showStatus('Por favor selecciona un usuario', 'error');
         return;
@@ -471,7 +412,7 @@
         }
       } catch (error) {
         console.error('Error completo:', error);
-        showStatus('✗ Error de conexión: ' + error.message + '. Verifica la URL y tu conexión a internet.', 'error');
+        showStatus('✗ Error de conexión: ' + error.message, 'error');
       } finally {
         saveDataBtn.disabled = false;
       }
@@ -492,9 +433,6 @@
     // Validar selecciones al cambiar
     userSelect.addEventListener('change', hideStatus);
     projectSelect.addEventListener('change', hideStatus);
-
-    // Cargar URL guardada al iniciar
-    loadSavedUrl();
 
     // CSS para la animación de la línea de escaneo
     const style = document.createElement('style');
