@@ -75,7 +75,9 @@ function setStatus(msg, error = false) {
 function getUser() {
   return document.getElementById('userSelect').value;
 }
-
+function getPro() {
+  return document.getElementById('userSelect').value;
+}
 function startScanning() {
   if (!getUser()) {
     setStatus('Selecciona un usuario.', true);
@@ -174,3 +176,4 @@ function saveToCSV() {
   a.click();
   setStatus('CSV descargado');
 }
+
