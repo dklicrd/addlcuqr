@@ -3,9 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Escanea QR del LCU</title>
-  <link rel="stylesheet" href="styles.css" />
-  <script src="https://unpkg.com/jsqr@1.4.0/dist/jsQR.js"></script>
+  <title>Escanea QR y Códigos de Barras</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -80,22 +78,48 @@
     .hidden {
       display: none;
     }
+    .url-setup {
+      background: #fff3cd;
+      padding: 15px;
+      border-radius: 5px;
+      margin: 15px 0;
+    }
+    .scanner-type {
+      margin: 15px 0;
+      text-align: center;
+    }
+    .scanner-type label {
+      margin: 0 10px;
+      cursor: pointer;
+    }
   </style>
+  <script src="https://unpkg.com/jsqr@1.4.0/dist/jsQR.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/quagga@0.12.1/dist/quagga.min.js"></script>
 </head>
 <body>
   <div class="container">
-    <h1>Escanea QR del LCU</h1>
+    <h1>Escanea QR y Códigos de Barras</h1>
+
+    <!-- CONFIGURACIÓN DE URL -->
+    <div class="url-setup">
+      <label for="scriptUrl"><strong>URL de Google Apps Script:</strong></label>
+      <input type="text" id="scriptUrl" placeholder="Pega aquí la URL de tu Web App" style="width: 100%; padding: 10px; margin: 5px 0; border: 1px solid #ddd; border-radius: 5px;">
+      <button id="saveUrl" style="background: #28a745; margin: 5px 0;">Guardar URL</button>
+      <p style="font-size: 12px; margin: 5px 0 0 0; color: #666;">
+        ⓘ Obtén esta URL desde: Google Apps Script → Publicar → Implementar como aplicación web
+      </p>
+    </div>
 
     <!-- SELECT DE USUARIO -->
     <div>
       <label for="userSelect"><strong>Usuario:</strong></label>
       <select id="userSelect" required>
         <option value="">Selecciona tu nombre</option>
-        <option value="Victor Green">Victor Green</option>
-        <option value="Alexander De Dios">Alexander De Dios</option>
-        <option value="Angel Perez">Angel Perez</option>
-        <option value="Máximo Vallejo">Máximo Vallejo</option>
-        <option value=Rosaura Nivar">Rosaura Nivar</option>
+        <option value="Ana">Ana</option>
+        <option value="Juan">Juan</option>
+        <option value="Luis">Luis</option>
+        <option value="María">María</option>
+        <option value="Pedro">Pedro</option>
       </select>
     </div>
 
@@ -112,10 +136,21 @@
       </select>
     </div>
 
+    <!-- TIPO DE ESCÁNER -->
+    <div class="scanner-type">
+      <strong>Tipo de escáner:</strong>
+      <label><input type="radio" name="scannerType" value="both" checked> Ambos (QR + Códigos de Barras)</label>
+      <label><input type="radio" name="scannerType" value="qr"> Solo QR</label>
+      <label><input type="radio" name="scannerType" value="barcode"> Solo Códigos de Barras</label>
+    </div>
+
     <!-- CÁMARA Y CANVAS -->
     <div id="cameraSection" class="hidden">
       <video id="video" autoplay playsinline></video>
       <canvas id="canvas" class="hidden"></canvas>
+      <div id="scannerOverlay" style="position: relative; margin-top: 10px;">
+        <div style="width: 100%; height: 2px; background: red; position: absolute; top: 50%; animation: scanLine 2s linear infinite;"></div>
+      </div>
       
       <div class="buttons">
         <button id="stopScan">Detener Escaneo</button>
@@ -130,22 +165,21 @@
 
     <!-- RESULTADO -->
     <div id="result" class="hidden">
-      <h3>Datos del QR Escaneado:</h3>
+      <h3>Datos Escaneados:</h3>
       <p id="qrData"></p>
       <div class="buttons">
         <button id="saveData">Guardar en Google Sheets</button>
-        <button id="scanAgain">Escanear otro QR</button>
+        <button id="scanAgain">Escanear otro</button>
       </div>
     </div>
   </div>
 
   <script>
-    // URL de tu Google Apps Script Web App - REEMPLAZA CON TU URL
-    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyjYTCdWr_34INkN0GoxI5w-HhGc-vS8glz20XZetlao7cMF0HPyNXzf-Umsw5XN8wq/exec';
-
     // Elementos DOM
     const userSelect = document.getElementById('userSelect');
     const projectSelect = document.getElementById('projectSelect');
+    const scriptUrlInput = document.getElementById('scriptUrl');
+    const saveUrlBtn = document.getElementById('saveUrl');
     const startScanBtn = document.getElementById('startScan');
     const stopScanBtn = document.getElementById('stopScan');
     const saveDataBtn = document.getElementById('saveData');
@@ -157,10 +191,35 @@
     const resultDiv = document.getElementById('result');
     const qrDataDiv = document.getElementById('qrData');
     const cameraSection = document.getElementById('cameraSection');
+    const scannerTypeRadios = document.querySelectorAll('input[name="scannerType"]');
 
     let stream = null;
     let scanning = false;
     let currentQRData = '';
+    let SCRIPT_URL = '';
+    let quaggaInitialized = false;
+
+    // Cargar URL guardada
+    function loadSavedUrl() {
+      const savedUrl = localStorage.getItem('googleScriptUrl');
+      if (savedUrl) {
+        scriptUrlInput.value = savedUrl;
+        SCRIPT_URL = savedUrl;
+        showStatus('URL cargada correctamente', 'success');
+      }
+    }
+
+    // Guardar URL
+    saveUrlBtn.addEventListener('click', function() {
+      const url = scriptUrlInput.value.trim();
+      if (url) {
+        localStorage.setItem('googleScriptUrl', url);
+        SCRIPT_URL = url;
+        showStatus('URL guardada correctamente', 'success');
+      } else {
+        showStatus('Por favor ingresa una URL válida', 'error');
+      }
+    });
 
     // Función para mostrar mensajes de estado
     function showStatus(message, type = 'info') {
@@ -174,8 +233,98 @@
       statusDiv.style.display = 'none';
     }
 
+    // Función para validar URL
+    function isValidUrl(string) {
+      try {
+        new URL(string);
+        return true;
+      } catch (_) {
+        return false;
+      }
+    }
+
+    // Obtener tipo de escáner seleccionado
+    function getScannerType() {
+      for (const radio of scannerTypeRadios) {
+        if (radio.checked) return radio.value;
+      }
+      return 'both';
+    }
+
+    // Inicializar Quagga para códigos de barras
+    function initQuagga() {
+      if (quaggaInitialized) return;
+      
+      Quagga.init({
+        inputStream: {
+          name: "Live",
+          type: "LiveStream",
+          target: video,
+          constraints: {
+            facingMode: "environment"
+          }
+        },
+        decoder: {
+          readers: [
+            "code_128_reader",
+            "ean_reader",
+            "ean_8_reader",
+            "code_39_reader",
+            "upc_reader",
+            "upc_e_reader"
+          ]
+        }
+      }, function(err) {
+        if (err) {
+          console.log('Quagga initialization error:', err);
+          return;
+        }
+        quaggaInitialized = true;
+        Quagga.start();
+      });
+
+      Quagga.onDetected(function(result) {
+        const code = result.codeResult.code;
+        if (code && getScannerType() !== 'qr') {
+          handleScannedCode(code, 'Código de barras');
+        }
+      });
+    }
+
+    // Detener Quagga
+    function stopQuagga() {
+      if (quaggaInitialized) {
+        Quagga.stop();
+        quaggaInitialized = false;
+      }
+    }
+
+    // Función para manejar código escaneado
+    function handleScannedCode(code, type) {
+      currentQRData = code;
+      showQRResult(currentQRData, type);
+      stopCamera();
+    }
+
     // Función para iniciar la cámara
     async function startCamera() {
+      // Validar que la URL esté configurada
+      if (!SCRIPT_URL || !isValidUrl(SCRIPT_URL)) {
+        showStatus('Por favor configura primero la URL de Google Apps Script', 'error');
+        return;
+      }
+
+      // Validar selecciones
+      if (!userSelect.value) {
+        showStatus('Por favor selecciona un usuario', 'error');
+        return;
+      }
+      
+      if (!projectSelect.value) {
+        showStatus('Por favor selecciona un proyecto', 'error');
+        return;
+      }
+
       try {
         showStatus('Iniciando cámara...', 'info');
         
@@ -189,7 +338,16 @@
         scanning = true;
         
         hideStatus();
-        scanQRCode();
+        
+        // Inicializar escáner según el tipo seleccionado
+        const scannerType = getScannerType();
+        if (scannerType !== 'barcode') {
+          scanQRCode();
+        }
+        if (scannerType !== 'qr') {
+          initQuagga();
+        }
+        
       } catch (error) {
         showStatus('Error al acceder a la cámara: ' + error.message, 'error');
       }
@@ -206,6 +364,7 @@
       cameraSection.classList.add('hidden');
       startScanBtn.classList.remove('hidden');
       hideStatus();
+      stopQuagga();
     }
 
     // Función para escanear QR
@@ -221,10 +380,8 @@
         const imageData = canvasContext.getImageData(0, 0, canvas.width, canvas.height);
         const code = jsQR(imageData.data, imageData.width, imageData.height);
         
-        if (code) {
-          currentQRData = code.data;
-          showQRResult(currentQRData);
-          stopCamera();
+        if (code && getScannerType() !== 'barcode') {
+          handleScannedCode(code.data, 'QR');
         }
       }
       
@@ -234,10 +391,11 @@
     }
 
     // Función para mostrar resultado del QR
-    function showQRResult(data) {
+    function showQRResult(data, type) {
       qrDataDiv.textContent = data;
+      qrDataDiv.innerHTML = `<strong>Tipo:</strong> ${type}<br><strong>Datos:</strong> ${data}`;
       resultDiv.classList.remove('hidden');
-      showStatus('QR detectado correctamente', 'success');
+      showStatus(`${type} detectado correctamente`, 'success');
     }
 
     // Función para guardar datos en Google Sheets
@@ -247,6 +405,11 @@
       const qrData = currentQRData;
 
       // Validaciones
+      if (!SCRIPT_URL) {
+        showStatus('URL no configurada. Configúrala arriba.', 'error');
+        return;
+      }
+
       if (!user) {
         showStatus('Por favor selecciona un usuario', 'error');
         return;
@@ -258,7 +421,7 @@
       }
       
       if (!qrData) {
-        showStatus('No hay datos QR para guardar', 'error');
+        showStatus('No hay datos para guardar', 'error');
         return;
       }
 
@@ -266,36 +429,50 @@
       showStatus('Guardando datos...', 'info');
 
       try {
+        // Crear datos del formulario
         const formData = new URLSearchParams();
         formData.append('user', user);
         formData.append('project', project);
         formData.append('qrData', qrData);
 
+        console.log('Enviando datos a:', SCRIPT_URL);
+        console.log('Datos:', { user, project, qrData });
+
         const response = await fetch(SCRIPT_URL, {
           method: 'POST',
-          body: formData
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+          },
+          body: formData.toString()
         });
 
-        const result = await response.text();
+        console.log('Respuesta recibida, status:', response.status);
 
-        if (result === 'ÉXITO') {
-          showStatus('Datos guardados exitosamente', 'success');
-          saveDataBtn.disabled = false;
+        if (!response.ok) {
+          throw new Error(`Error HTTP: ${response.status} ${response.statusText}`);
+        }
+
+        const result = await response.text();
+        console.log('Resultado:', result);
+
+        if (result.includes('ÉXITO')) {
+          showStatus('✓ Datos guardados exitosamente en Google Sheets', 'success');
           
-          // Deshabilitar el botón por un tiempo para evitar duplicados
+          // Ocultar resultado después de éxito
           setTimeout(() => {
-            saveDataBtn.disabled = false;
+            resultDiv.classList.add('hidden');
+            currentQRData = '';
           }, 3000);
           
-        } else if (result === 'DUPLICADO') {
-          showStatus('Este QR ya fue escaneado anteriormente', 'warning');
-          saveDataBtn.disabled = false;
+        } else if (result.includes('DUPLICADO')) {
+          showStatus('⚠ Este código ya fue escaneado anteriormente', 'warning');
         } else {
-          showStatus('Error al guardar: ' + result, 'error');
-          saveDataBtn.disabled = false;
+          showStatus('✗ Error al guardar: ' + result, 'error');
         }
       } catch (error) {
-        showStatus('Error de conexión: ' + error.message, 'error');
+        console.error('Error completo:', error);
+        showStatus('✗ Error de conexión: ' + error.message + '. Verifica la URL y tu conexión a internet.', 'error');
+      } finally {
         saveDataBtn.disabled = false;
       }
     }
@@ -315,8 +492,20 @@
     // Validar selecciones al cambiar
     userSelect.addEventListener('change', hideStatus);
     projectSelect.addEventListener('change', hideStatus);
+
+    // Cargar URL guardada al iniciar
+    loadSavedUrl();
+
+    // CSS para la animación de la línea de escaneo
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes scanLine {
+        0% { top: 10%; }
+        50% { top: 90%; }
+        100% { top: 10%; }
+      }
+    `;
+    document.head.appendChild(style);
   </script>
 </body>
 </html>
-
-
