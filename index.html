@@ -1,27 +1,17 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Escáner QR y Códigos de Barra</title>
-  <link rel="stylesheet" href="styles.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Escáner QR</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://unpkg.com/jsqr@1.4.0/dist/jsQR.js"></script>
 </head>
 <body>
   <div class="container">
-    <h1>Escáner QR y Códigos de Barra</h1>
-    
-    <!-- Select de Proyecto (nuevo) -->
-    <div style="margin: 20px 0; text-align: center;">
-      <label for="projectSelect"><strong>Proyecto:</strong></label>
-      <select id="projectSelect" required style="padding: 10px; font-size: 16px; width: 100%; margin-top: 8px;">
-  <option value="">-- Selecciona Proyecto --</option>
-  <option value="Proyecto A">Proyecto A</option>
-  <option value="Proyecto B">Proyecto B</option>
-  <option value="Proyecto C">Proyecto C</option>
-</select>
-    </div>
+    <h1>Escáner QR</h1>
 
-    <!-- Select de Usuario -->
+    <!-- SELECT DE USUARIO -->
     <div style="margin: 20px 0; text-align: center;">
       <label for="userSelect"><strong>Usuario:</strong></label>
       <select id="userSelect" required style="padding: 10px; font-size: 16px; width: 100%; margin-top: 8px;">
@@ -34,26 +24,27 @@
       </select>
     </div>
 
-    <video id="video" width="100%" height="auto" autoplay playsinline></video>
+    <video id="video" autoplay playsinline></video>
     <canvas id="canvas" style="display: none;"></canvas>
 
     <div class="buttons">
-      <button id="startScan">Escanear</button>
+      <button id="startScan">Iniciar Escaneo</button>
       <button id="stopScan" style="display: none;">Detener</button>
     </div>
 
-    <p id="status"></p>
+    <div id="status"></div>
 
-    <div id="result" style="display: none;">
-      <h2>Datos:</h2>
-      <p id="qrData"></p>
-      <button id="saveToCSV">Descargar CSV</button>
+    <!-- Resultado -->
+    <div id="result" style="display: none; margin-top: 20px; text-align: center;">
+      <h3>Datos del QR:</h3>
+      <p id="qrData" style="word-break: break-all; background: #f0f0f0; padding: 10px; border-radius: 5px;"></p>
+      <div class="buttons">
+              <button id="saveToCSV">Guardar en CSV</button>
+      </div>
     </div>
   </div>
 
-  <script src="https://unpkg.com/@zxing/library@latest/umd/index.min.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
-
 

@@ -1,4 +1,6 @@
-let codeReader = new ZXing.BrowserMultiFormatReader();
+let video = document.getElementById('video');
+let canvas = document.getElementById('canvas');
+let ctx = canvas.getContext('2d');
 let scanning = false;
 let qrData = '';
 let stream = null;
@@ -7,116 +9,168 @@ let existingQRs = new Set();
 const scriptUrl = 'https://script.google.com/macros/s/AKfycbyjYTCdWr_34INkN0GoxI5w-HhGc-vS8glz20XZetlao7cMF0HPyNXzf-Umsw5XN8wq/exec';
 const STORAGE_KEY = 'scannedQRs';
 
-document.getElementById('startScan').addEventListener('click', startScanning);
-document.getElementById('stopScan').addEventListener('click', stopScanning);
-document.getElementById('saveToCSV').addEventListener('click', saveToCSV);
-
-window.addEventListener('load', () => {
-  loadLocalQRs();
-});
-
-function setStatus(message, isError = false) {
-  const el = document.getElementById('status');
-  el.textContent = message;
-  el.style.color = isError ? 'red' : '#4CAF50';
-}
-
-function getUser() { return document.getElementById('userSelect').value.trim(); }
-function getProject() { return document.getElementById('projectSelect').value.trim(); }
-
+// CARGAR localStorage
 function loadLocalQRs() {
   const data = localStorage.getItem(STORAGE_KEY);
-  if (data) existingQRs = new Set(JSON.parse(data));
+  if (data) {
+    try {
+      const qrs = JSON.parse(data);
+      existingQRs = new Set(qrs);
+      setStatus(`Local: ${qrs.length} códigos.`);
+    } catch (e) {
+      console.error('localStorage error:', e);
+    }
+  }
 }
 
+// GUARDAR EN localStorage
 function saveToLocalStorage() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(existingQRs)));
 }
 
+// SINCRONIZAR CON SERVIDOR (CON CORS)
+async function syncWithServer() {
+  try {
+    // CACHE BUSTER
+    const url = `${scriptUrl}?t=${Date.now()}`;
+    const response = await fetch(url, { mode: 'cors' });
+    
+    if (!response.ok) throw new Error('HTTP ' + response.status);
+    
+    const text = await response.text();
+    if (text && text !== 'ERROR') {
+      const serverQRs = text.split('|').map(q => q.trim()).filter(Boolean);
+      let added = 0;
+      serverQRs.forEach(qr => {
+        if (!existingQRs.has(qr)) {
+          existingQRs.add(qr);
+          added++;
+        }
+      });
+      saveToLocalStorage();
+      setStatus(`Sincronizado: +${added} nuevos. Total: ${existingQRs.size}`);
+    }
+  } catch (err) {
+    console.warn('Sync falló:', err);
+    setStatus('Offline: solo memoria local.');
+  }
+}
+
+// CARGA AL INICIAR
+window.addEventListener('load', () => {
+  loadLocalQRs();
+  syncWithServer();
+});
+
+document.getElementById('startScan').addEventListener('click', startScanning);
+document.getElementById('stopScan').addEventListener('click', stopScanning);
+document.getElementById('saveToCSV').addEventListener('click', saveToCSV);
+
+function setStatus(msg, error = false) {
+  const s = document.getElementById('status');
+  s.textContent = msg;
+  s.style.color = error ? 'red' : '#4CAF50';
+}
+
+function getUser() {
+  return document.getElementById('userSelect').value;
+}
+
 function startScanning() {
-  const user = getUser(), project = getProject();
-  if (!user || !project) { setStatus('Selecciona usuario y proyecto.', true); return; }
+  if (!getUser()) {
+    setStatus('Selecciona un usuario.', true);
+    return;
+  }
+  if (!navigator.mediaDevices?.getUserMedia) {
+    setStatus('Cámara no soportada.', true);
+    return;
+  }
+
+  scanning = true;
+  document.getElementById('startScan').style.display = 'none';
+  document.getElementById('stopScan').style.display = 'block';
+  document.getElementById('result').style.display = 'none';
+  setStatus('Escaneando...');
 
   navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
     .then(s => {
       stream = s;
-      const video = document.getElementById('video');
       video.srcObject = stream;
       video.play();
-      scanning = true;
-      document.getElementById('startScan').style.display = 'none';
-      document.getElementById('stopScan').style.display = 'block';
-      setStatus('Escaneando...');
-
-      codeReader.decodeFromVideoDevice(undefined, 'video', (result) => {
-        if (result && scanning) {
-          qrData = result.text.trim();
-          document.getElementById('qrData').textContent = qrData;
-          document.getElementById('result').style.display = 'block';
-          stopScanning();
-          autoSaveQR();
-        }
-      });
+      requestAnimationFrame(scanQR);
     })
-    .catch(e => setStatus('Cámara: ' + e.message, true));
+    .catch(() => setStatus('Error de cámara.', true));
 }
 
 function stopScanning() {
   scanning = false;
-  codeReader.reset();
   document.getElementById('startScan').style.display = 'block';
   document.getElementById('stopScan').style.display = 'none';
   setStatus('');
   if (stream) stream.getTracks().forEach(t => t.stop());
 }
 
-async function autoSaveQR() {
-  const user = getUser(), project = getProject();
-  if (!qrData || !user || !project) return;
-
-  if (existingQRs.has(qrData)) {
-    setStatus('DUPLICADO.', true);
+function scanQR() {
+  if (!scanning || video.readyState !== video.HAVE_ENOUGH_DATA) {
+    requestAnimationFrame(scanQR);
     return;
   }
 
-  const params = new URLSearchParams({ project, user, qrData });
-  const url = `${scriptUrl}?${params.toString()}&t=${Date.now()}`;
+  canvas.height = video.videoHeight;
+  canvas.width = video.videoWidth;
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  const code = jsQR(ctx.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height);
 
-  try {
-    const res = await fetch(url, {
-      method: 'GET',
-      mode: 'cors',
-      cache: 'no-cache'
-    });
-
-    const json = await res.json();
-
-    if (json.status === 'SUCCESS') {
-      existingQRs.add(qrData);
-      saveToLocalStorage();
-      setStatus(`ÉXITO: ${user} → "${project}"`);
-    } else if (json.status === 'DUPLICATE') {
-      setStatus('DUPLICADO.', true);
-    } else {
-      setStatus('Error: ' + json.message, true);
-    }
-  } catch (err) {
-    setStatus('Error de red: ' + err.message, true);
+  if (code) {
+    qrData = code.data.trim();
+    document.getElementById('qrData').textContent = qrData;
+    document.getElementById('result').style.display = 'block';
+    stopScanning();
+    autoSaveQR();
+  } else {
+    requestAnimationFrame(scanQR);
   }
+}
+
+async function autoSaveQR() {
+  const user = getUser();
+  if (!user || !qrData) return;
+
+  if (existingQRs.has(qrData)) {
+    setStatus('DUPLICADO: Ya registrado.', true);
+    return;
+  }
+
+  const payload = `qrData=${encodeURIComponent(qrData)}&user=${encodeURIComponent(user)}`;
+
+  fetch(scriptUrl, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: payload
+  })
+  .then(() => {
+    existingQRs.add(qrData);
+    saveToLocalStorage();
+    setStatus(`ÉXITO: ${user} registró: ${qrData}`);
+  })
+  .catch(() => {
+    setStatus('Error de red.', true);
+  });
 }
 
 function saveToCSV() {
   if (!qrData) return;
   const user = getUser() || 'Anónimo';
-  const project = getProject() || 'Sin proyecto';
   const timestamp = new Date().toLocaleString('es-ES');
   let data = localStorage.getItem('qrList') || '';
-  data += `"${timestamp}","${project}","${user}","${qrData}"\n`;
+  data += `"${timestamp}","${user}","${qrData}"\n`;
   localStorage.setItem('qrList', data);
 
-  const link = document.createElement('a');
-  link.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent('Fecha_Hora,Proyecto,Usuario,Datos\n' + data);
-  link.download = 'lecturas.csv';
-  link.click();
+  const csv = 'data:text/csv;charset=utf-8,Fecha,Usuario,QR\n' + data;
+  const a = document.createElement('a');
+  a.href = encodeURI(csv);
+  a.download = 'qr_lecturas.csv';
+  a.click();
   setStatus('CSV descargado');
 }
