@@ -399,8 +399,12 @@
         formData.append('qrData', qrData);
         formData.append('comments', comments);
 
-        console.log('Enviando datos a:', SCRIPT_URL);
-        console.log('Datos:', { user, project, qrData, comments });
+        console.log('=== DATOS A ENVIAR ===');
+        console.log('URL:', SCRIPT_URL);
+        console.log('Usuario:', user);
+        console.log('Proyecto:', project);
+        console.log('QR Data:', qrData);
+        console.log('Comentarios:', comments);
 
         const response = await fetch(SCRIPT_URL, {
           method: 'POST',
@@ -417,7 +421,7 @@
         }
 
         const result = await response.text();
-        console.log('Resultado:', result);
+        console.log('Resultado del servidor:', result);
 
         if (result.includes('ÉXITO')) {
           showStatus('✓ Datos guardados exitosamente en Google Sheets', 'success');
