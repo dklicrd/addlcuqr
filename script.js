@@ -76,13 +76,18 @@ function getUser() {
   return document.getElementById('userSelect').value;
 }
 function getPro() {
-  return document.getElementById('userSelect').value;
+  return document.getElementById('ProSelect').value;
 }
 function startScanning() {
   if (!getUser()) {
     setStatus('Selecciona un usuario.', true);
     return;
   }
+  if (!getPro()) {
+    setStatus('Selecciona un Proyecto.', true);
+    return;
+  }
+  
   if (!navigator.mediaDevices?.getUserMedia) {
     setStatus('Cámara no soportada.', true);
     return;
@@ -136,7 +141,8 @@ function scanQR() {
 
 async function autoSaveQR() {
   const user = getUser();
-  if (!user || !qrData) return;
+  const projec = getPro();
+  if (!user || !projec || !qrData) return;
 
   if (existingQRs.has(qrData)) {
     setStatus('DUPLICADO: Ya registrado.', true);
@@ -176,4 +182,5 @@ function saveToCSV() {
   a.click();
   setStatus('CSV descargado');
 }
+
 
