@@ -47,13 +47,17 @@
       font-weight: bold;
       color: #495057;
     }
-    select, input, button {
+    select, input, button, textarea {
       width: 100%;
       padding: 10px;
       border: 1px solid #ddd;
       border-radius: 5px;
       font-size: 14px;
       box-sizing: border-box;
+    }
+    textarea {
+      height: 80px;
+      resize: vertical;
     }
     button {
       background-color: #007cba;
@@ -162,8 +166,13 @@
       padding: 40px;
       color: #666;
     }
-    .hidden {
-      display: none;
+    .error-message {
+      background: #f8d7da;
+      color: #721c24;
+      padding: 15px;
+      border-radius: 5px;
+      margin: 20px 0;
+      text-align: center;
     }
     .email-modal {
       position: fixed;
@@ -198,6 +207,9 @@
     }
     .back-link:hover {
       text-decoration: underline;
+    }
+    .hidden {
+      display: none;
     }
   </style>
 </head>
@@ -244,6 +256,9 @@
       <button id="btnLimpiar" class="btn-warning">Limpiar Filtros</button>
     </div>
 
+    <!-- Mensaje de Error -->
+    <div id="errorMessage" class="error-message hidden"></div>
+
     <!-- Estadísticas -->
     <div id="estadisticas" class="stats hidden">
       <h3>Estadísticas del Reporte</h3>
@@ -276,7 +291,7 @@
 
     <!-- Resultados -->
     <div class="results">
-      <div id="loading" class="loading hidden">
+      <div id="loading" class="loading">
         <p>Cargando datos...</p>
       </div>
       
@@ -329,7 +344,7 @@
   </div>
 
   <script>
-    // URL del Google Apps Script
+    // URL del Google Apps Script - CORREGIDA
     const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzDgU6Q-xRgUgotBXSgXVN0OXEXw4UaSncSIrRkq1rJPgQjfhmxnNhhrHP9RhwTdc5g/exec';
 
     // Elementos DOM
@@ -349,6 +364,7 @@
     const loading = document.getElementById('loading');
     const resultados = document.getElementById('resultados');
     const estadisticas = document.getElementById('estadisticas');
+    const errorMessage = document.getElementById('errorMessage');
     const emailModal = document.getElementById('emailModal');
     const btnEnviarEmailConfirmar = document.getElementById('btnEnviarEmailConfirmar');
     const btnCancelarEmail = document.getElementById('btnCancelarEmail');
@@ -369,22 +385,45 @@
       fechaFin.valueAsDate = hoy;
     }
 
+    // Mostrar/ocultar error
+    function mostrarError(mensaje) {
+      if (mensaje) {
+        errorMessage.textContent = mensaje;
+        errorMessage.classList.remove('hidden');
+      } else {
+        errorMessage.classList.add('hidden');
+      }
+    }
+
     // Cargar datos iniciales
     async function cargarDatosIniciales() {
       mostrarLoading(true);
+      mostrarError();
       
       try {
+        console.log('Cargando datos desde:', SCRIPT_URL + '?action=getAllData');
+        
         const response = await fetch(SCRIPT_URL + '?action=getAllData');
-        if (!response.ok) throw new Error('Error al cargar datos');
+        
+        if (!response.ok) {
+          throw new Error(`Error HTTP: ${response.status} ${response.statusText}`);
+        }
         
         const data = await response.json();
+        
+        // Verificar si la respuesta es un array
+        if (!Array.isArray(data)) {
+          throw new Error('La respuesta del servidor no es válida');
+        }
+        
         datosCompletos = data;
+        console.log('Datos cargados:', datosCompletos.length, 'registros');
         
         aplicarFiltros();
         mostrarLoading(false);
       } catch (error) {
-        console.error('Error:', error);
-        alert('Error al cargar los datos: ' + error.message);
+        console.error('Error al cargar datos:', error);
+        mostrarError('Error al cargar los datos: ' + error.message + '. Verifica que el Google Apps Script esté correctamente configurado.');
         mostrarLoading(false);
       }
     }
@@ -396,13 +435,19 @@
       // Filtrar por fecha
       if (fechaInicio.value) {
         const fechaInicioObj = new Date(fechaInicio.value);
-        filtrados = filtrados.filter(item => new Date(item.fecha) >= fechaInicioObj);
+        filtrados = filtrados.filter(item => {
+          const itemFecha = new Date(item.fecha);
+          return itemFecha >= fechaInicioObj;
+        });
       }
       
       if (fechaFin.value) {
         const fechaFinObj = new Date(fechaFin.value);
         fechaFinObj.setHours(23, 59, 59, 999); // Incluir todo el día
-        filtrados = filtrados.filter(item => new Date(item.fecha) <= fechaFinObj);
+        filtrados = filtrados.filter(item => {
+          const itemFecha = new Date(item.fecha);
+          return itemFecha <= fechaFinObj;
+        });
       }
       
       // Filtrar por usuario
@@ -482,22 +527,28 @@
 
     // Formatear fecha
     function formatearFecha(fechaString) {
-      const fecha = new Date(fechaString);
-      return fecha.toLocaleDateString('es-ES', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
+      try {
+        const fecha = new Date(fechaString);
+        return fecha.toLocaleDateString('es-ES', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+      } catch (e) {
+        return fechaString;
+      }
     }
 
     // Mostrar/ocultar loading
     function mostrarLoading(mostrar) {
-      loading.classList.toggle('hidden', !mostrar);
       if (mostrar) {
+        loading.classList.remove('hidden');
         resultados.classList.add('hidden');
         estadisticas.classList.add('hidden');
+      } else {
+        loading.classList.add('hidden');
       }
     }
 
@@ -595,7 +646,7 @@
     }
 
     // Enviar por email
-    async function enviarPorEmail() {
+    function enviarPorEmail() {
       if (datosFiltrados.length === 0) {
         alert('No hay datos para enviar');
         return;
@@ -645,36 +696,55 @@
         return;
       }
       
+      if (!email.includes('@') || !email.includes('.')) {
+        alert('Por favor ingresa un email válido');
+        return;
+      }
+      
       try {
         mostrarLoading(true);
         emailModal.classList.add('hidden');
         
+        const formData = new URLSearchParams();
+        formData.append('action', 'sendEmailReport');
+        formData.append('email', email);
+        formData.append('subject', asunto);
+        formData.append('message', mensaje);
+        if (fechaInicio.value) formData.append('fechaInicio', fechaInicio.value);
+        if (fechaFin.value) formData.append('fechaFin', fechaFin.value);
+        if (usuarioFiltro.value) formData.append('usuario', usuarioFiltro.value);
+        if (proyectoFiltro.value) formData.append('proyecto', proyectoFiltro.value);
+
+        console.log('Enviando email con datos:', {
+          email, asunto, mensaje,
+          fechaInicio: fechaInicio.value,
+          fechaFin: fechaFin.value,
+          usuario: usuarioFiltro.value,
+          proyecto: proyectoFiltro.value
+        });
+
         const response = await fetch(SCRIPT_URL, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
           },
-          body: new URLSearchParams({
-            action: 'sendEmailReport',
-            email: email,
-            subject: asunto,
-            message: mensaje,
-            fechaInicio: fechaInicio.value,
-            fechaFin: fechaFin.value,
-            usuario: usuarioFiltro.value,
-            proyecto: proyectoFiltro.value
-          })
+          body: formData.toString()
         });
         
-        if (!response.ok) throw new Error('Error al enviar email');
+        if (!response.ok) {
+          throw new Error(`Error HTTP: ${response.status} ${response.statusText}`);
+        }
         
         const result = await response.text();
+        console.log('Respuesta del servidor:', result);
+        
         if (result.includes('ÉXITO')) {
           alert('Email enviado exitosamente');
         } else {
           throw new Error(result);
         }
       } catch (error) {
+        console.error('Error al enviar email:', error);
         alert('Error al enviar email: ' + error.message);
       } finally {
         mostrarLoading(false);
@@ -685,9 +755,19 @@
       emailModal.classList.add('hidden');
     });
 
+    // Cerrar modal haciendo clic fuera de él
+    emailModal.addEventListener('click', (e) => {
+      if (e.target === emailModal) {
+        emailModal.classList.add('hidden');
+      }
+    });
+
     // Inicializar
-    establecerFechasPorDefecto();
-    cargarDatosIniciales();
+    document.addEventListener('DOMContentLoaded', function() {
+      console.log('Página de reportes cargada');
+      establecerFechasPorDefecto();
+      cargarDatosIniciales();
+    });
   </script>
 </body>
 </html>
