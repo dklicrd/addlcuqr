@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Reportes - Escaneos QR y Códigos de Barras</title>
   <style>
-    /* Mantener el mismo CSS anterior, solo cambio el JavaScript */
+    /* Mantener el CSS anterior completo */
     body {
       font-family: Arial, sans-serif;
       margin: 0;
@@ -212,12 +212,28 @@
     .hidden {
       display: none;
     }
+    .url-config {
+      background: #fff3cd;
+      padding: 15px;
+      border-radius: 5px;
+      margin-bottom: 20px;
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <a href="index.html" class="back-link">← Volver al Escáner</a>
     <h1>Reportes de Escaneos</h1>
+
+    <!-- Configuración de URL -->
+    <div class="url-config">
+      <label for="scriptUrlInput"><strong>URL de Google Apps Script:</strong></label>
+      <input type="text" id="scriptUrlInput" placeholder="Pega aquí la URL de tu Web App" style="width: 100%; padding: 10px; margin: 5px 0; border: 1px solid #ddd; border-radius: 5px;">
+      <button id="saveUrlBtn" style="background: #28a745; margin: 5px 0;">Guardar URL</button>
+      <p style="font-size: 12px; margin: 5px 0 0 0; color: #666;">
+        ⓘ Obtén esta URL desde: Google Apps Script → Publicar → Implementar como aplicación web
+      </p>
+    </div>
 
     <!-- Filtros -->
     <div class="filters">
@@ -345,10 +361,12 @@
   </div>
 
   <script>
-    // URL del Google Apps Script
-    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzDgU6Q-xRgUgotBXSgXVN0OXEXw4UaSncSIrRkq1rJPgQjfhmxnNhhrHP9RhwTdc5g/exec';
+    // URL por defecto - ACTUALIZA ESTA URL CON LA NUEVA QUE OBTENGAS
+    let SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzDgU6Q-xRgUgotBXSgXVN0OXEXw4UaSncSIrRkq1rJPgQjfhmxnNhhrHP9RhwTdc5g/exec';
 
     // Elementos DOM
+    const scriptUrlInput = document.getElementById('scriptUrlInput');
+    const saveUrlBtn = document.getElementById('saveUrlBtn');
     const fechaInicio = document.getElementById('fechaInicio');
     const fechaFin = document.getElementById('fechaFin');
     const usuarioFiltro = document.getElementById('usuarioFiltro');
@@ -376,7 +394,31 @@
     let paginaActual = 1;
     const registrosPorPagina = 50;
 
-    // Establecer fechas por defecto (últimos 30 días)
+    // Cargar URL guardada
+    function loadSavedUrl() {
+      const savedUrl = localStorage.getItem('googleScriptUrl');
+      if (savedUrl) {
+        scriptUrlInput.value = savedUrl;
+        SCRIPT_URL = savedUrl;
+        console.log('URL cargada:', SCRIPT_URL);
+      }
+    }
+
+    // Guardar URL
+    saveUrlBtn.addEventListener('click', function() {
+      const url = scriptUrlInput.value.trim();
+      if (url) {
+        localStorage.setItem('googleScriptUrl', url);
+        SCRIPT_URL = url;
+        console.log('URL guardada:', SCRIPT_URL);
+        alert('URL guardada correctamente');
+        location.reload();
+      } else {
+        alert('Por favor ingresa una URL válida');
+      }
+    });
+
+    // Establecer fechas por defecto
     function establecerFechasPorDefecto() {
       const hoy = new Date();
       const hace30Dias = new Date();
@@ -396,61 +438,102 @@
       }
     }
 
-    // Cargar datos iniciales - VERSIÓN MEJORADA
+    // Cargar datos iniciales - CON MÁS MANEJO DE ERRORES
     async function cargarDatosIniciales() {
+      if (!SCRIPT_URL) {
+        mostrarError('Por favor configura primero la URL de Google Apps Script');
+        return;
+      }
+
       mostrarLoading(true);
       mostrarError();
       
       try {
-        console.log('Cargando datos desde:', SCRIPT_URL + '?action=getAllData');
+        console.log('Intentando conectar a:', SCRIPT_URL + '?action=getAllData');
         
-        // Usar fetch con manejo de redirección
+        // Timeout de 30 segundos
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000);
+        
         const response = await fetch(SCRIPT_URL + '?action=getAllData', {
-          redirect: 'follow'
+          signal: controller.signal,
+          redirect: 'follow',
+          mode: 'no-cors' // Intentar sin CORS primero
+        }).catch(err => {
+          // Si falla no-cors, intentar con cors
+          return fetch(SCRIPT_URL + '?action=getAllData', {
+            signal: controller.signal,
+            redirect: 'follow'
+          });
         });
+        
+        clearTimeout(timeoutId);
         
         if (!response.ok) {
           throw new Error(`Error HTTP: ${response.status} ${response.statusText}`);
         }
         
         const text = await response.text();
-        console.log('Respuesta recibida (texto):', text.substring(0, 200) + '...');
+        console.log('Respuesta recibida:', text.substring(0, 200));
         
         let data;
         try {
           data = JSON.parse(text);
         } catch (parseError) {
           console.error('Error parseando JSON:', parseError);
-          // Si no es JSON, puede ser el formato antiguo
-          throw new Error('El servidor no está devolviendo JSON válido. Respuesta: ' + text.substring(0, 100));
+          throw new Error('El servidor no devolvió JSON válido. Verifica que la función getAllData exista.');
         }
         
-        // Verificar si la respuesta es un array
         if (!Array.isArray(data)) {
-          throw new Error('La respuesta del servidor no es un array válido');
+          throw new Error('La respuesta no es un array válido');
         }
         
         datosCompletos = data;
-        console.log('Datos cargados correctamente:', datosCompletos.length, 'registros');
+        console.log('Datos cargados:', datosCompletos.length, 'registros');
         
         aplicarFiltros();
         mostrarLoading(false);
       } catch (error) {
-        console.error('Error completo al cargar datos:', error);
-        mostrarError('Error al cargar los datos: ' + error.message + 
-                    '. Verifica que el Google Apps Script esté actualizado y tenga la función getAllData.');
+        console.error('Error completo:', error);
+        
+        let mensajeError = 'Error al cargar los datos: ' + error.message;
+        
+        if (error.name === 'AbortError') {
+          mensajeError = 'Timeout: El servidor no respondió en 30 segundos. Verifica la URL.';
+        } else if (error.message.includes('Failed to fetch')) {
+          mensajeError = 'No se pudo conectar al servidor. Verifica: 1) La URL es correcta, 2) La aplicación web está desplegada, 3) El acceso es "Cualquier persona"';
+        }
+        
+        mostrarError(mensajeError);
         mostrarLoading(false);
+        
+        // Crear datos de ejemplo para testing
+        crearDatosEjemplo();
       }
     }
 
-    // El resto de las funciones se mantienen igual que en la versión anterior
-    // Aplicar filtros, actualizar tabla, etc...
+    // Crear datos de ejemplo si falla la conexión
+    function crearDatosEjemplo() {
+      console.log('Creando datos de ejemplo para testing');
+      datosCompletos = [
+        {
+          fecha: new Date().toISOString(),
+          usuario: 'Ejemplo',
+          qrData: 'QR_EJEMPLO_001',
+          proyecto: 'Hyatt',
+          comentarios: 'Datos de ejemplo - Conexión falló'
+        }
+      ];
+      aplicarFiltros();
+    }
+
+    // El resto de las funciones se mantienen igual...
+    // Aplicar filtros, actualizar tabla, exportar, etc.
 
     // Aplicar filtros
     function aplicarFiltros() {
       let filtrados = [...datosCompletos];
       
-      // Filtrar por fecha
       if (fechaInicio.value) {
         const fechaInicioObj = new Date(fechaInicio.value);
         filtrados = filtrados.filter(item => {
@@ -468,12 +551,10 @@
         });
       }
       
-      // Filtrar por usuario
       if (usuarioFiltro.value) {
         filtrados = filtrados.filter(item => item.usuario === usuarioFiltro.value);
       }
       
-      // Filtrar por proyecto
       if (proyectoFiltro.value) {
         filtrados = filtrados.filter(item => item.proyecto === proyectoFiltro.value);
       }
@@ -769,6 +850,7 @@
     // Inicializar
     document.addEventListener('DOMContentLoaded', function() {
       console.log('Página de reportes cargada');
+      loadSavedUrl();
       establecerFechasPorDefecto();
       cargarDatosIniciales();
     });
