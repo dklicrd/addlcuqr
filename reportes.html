@@ -3,14 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Reportes - Escaneos QR y Códigos de Barras</title>
+  <title>Reportes - Escaneos QR</title>
   <style>
-    /* CSS Básico y Necesario */
     body {
       font-family: Arial, sans-serif;
-      margin: 0;
-      padding: 20px;
-      background-color: #f5f5f5;
+      margin: 20px;
+      background: #f5f5f5;
     }
     .container {
       max-width: 1200px;
@@ -20,102 +18,73 @@
       border-radius: 10px;
       box-shadow: 0 2px 10px rgba(0,0,0,0.1);
     }
-    h1 {
-      text-align: center;
-      color: #333;
-      margin-bottom: 30px;
-    }
     .config-section {
-      background: #fff3cd;
+      background: #e3f2fd;
       padding: 20px;
       border-radius: 8px;
       margin-bottom: 20px;
-      border: 1px solid #ffeaa7;
+      border: 1px solid #bbdefb;
     }
     .filters {
-      background: #f8f9fa;
+      background: #f3e5f5;
       padding: 20px;
       border-radius: 8px;
       margin-bottom: 20px;
-      border: 1px solid #e9ecef;
     }
     .filter-group {
-      display: flex;
-      flex-wrap: wrap;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
       gap: 15px;
       margin-bottom: 15px;
-    }
-    .filter-item {
-      flex: 1;
-      min-width: 200px;
     }
     label {
       display: block;
       margin-bottom: 5px;
       font-weight: bold;
     }
-    select, input, button, textarea {
+    input, select, button {
       width: 100%;
       padding: 10px;
+      margin-bottom: 10px;
       border: 1px solid #ddd;
       border-radius: 5px;
-      font-size: 14px;
       box-sizing: border-box;
-      margin-bottom: 10px;
     }
     button {
-      background-color: #007cba;
+      background: #2196f3;
       color: white;
       border: none;
       cursor: pointer;
       font-weight: bold;
     }
     button:hover {
-      background-color: #005a87;
+      background: #1976d2;
     }
     button:disabled {
-      background-color: #cccccc;
+      background: #ccc;
       cursor: not-allowed;
     }
-    .btn-test {
-      background-color: #17a2b8;
-    }
-    .btn-success {
-      background-color: #28a745;
-    }
-    .btn-warning {
-      background-color: #ffc107;
-      color: #212529;
-    }
-    .btn-danger {
-      background-color: #dc3545;
-    }
+    .btn-test { background: #4caf50; }
+    .btn-success { background: #4caf50; }
+    .btn-warning { background: #ff9800; }
+    .btn-danger { background: #f44336; }
     .action-buttons {
       display: flex;
       gap: 10px;
       margin: 20px 0;
+      flex-wrap: wrap;
+    }
+    .action-buttons button {
+      flex: 1;
+      min-width: 120px;
     }
     .loading {
       text-align: center;
       padding: 40px;
       color: #666;
     }
-    .error-message {
-      background: #f8d7da;
-      color: #721c24;
-      padding: 15px;
-      border-radius: 5px;
-      margin: 20px 0;
-      text-align: center;
-    }
-    .success-message {
-      background: #d4edda;
-      color: #155724;
-      padding: 15px;
-      border-radius: 5px;
-      margin: 20px 0;
-      text-align: center;
-    }
+    .error { background: #ffebee; color: #c62828; padding: 15px; border-radius: 5px; margin: 10px 0; }
+    .success { background: #e8f5e8; color: #2e7d32; padding: 15px; border-radius: 5px; margin: 10px 0; }
     table {
       width: 100%;
       border-collapse: collapse;
@@ -127,57 +96,59 @@
       border-bottom: 1px solid #ddd;
     }
     th {
-      background-color: #f8f9fa;
+      background: #f5f5f5;
       font-weight: bold;
     }
     .hidden {
       display: none;
     }
     .back-link {
-      display: inline-block;
-      margin-bottom: 20px;
-      color: #007cba;
+      color: #2196f3;
       text-decoration: none;
       font-weight: bold;
+      margin-bottom: 20px;
+      display: inline-block;
     }
   </style>
 </head>
 <body>
   <div class="container">
     <a href="index.html" class="back-link">← Volver al Escáner</a>
-    <h1>Reportes de Escaneos</h1>
+    <h1>📊 Reportes de Escaneos</h1>
 
-    <!-- Sección de Configuración -->
+    <!-- Configuración -->
     <div class="config-section">
-      <h3>🔧 Configuración de Conexión</h3>
-      <div class="filter-item">
+      <h3>🔧 Configuración</h3>
+      <div>
         <label for="scriptUrlInput"><strong>URL de Google Apps Script:</strong></label>
-        <input type="text" id="scriptUrlInput" placeholder="https://script.google.com/macros/s/..." value="https://script.google.com/macros/s/AKfycbzDgU6Q-xRgUgotBXSgXVN0OXEXw4UaSncSIrRkq1rJPgQjfhmxnNhhrHP9RhwTdc5g/exec">
+        <input type="text" id="scriptUrlInput" placeholder="https://script.google.com/macros/s/..." 
+               value="https://script.google.com/macros/s/AKfycbzDgU6Q-xRgUgotBXSgXVN0OXEXw4UaSncSIrRkq1rJPgQjfhmxnNhhrHP9RhwTdc5g/exec">
         <small>Obtén esta URL desde: Google Apps Script → Publicar → Implementar como aplicación web</small>
       </div>
       <div class="action-buttons">
         <button id="testConnectionBtn" class="btn-test">🔍 Probar Conexión</button>
         <button id="saveUrlBtn" class="btn-success">💾 Guardar URL</button>
+        <button id="loadDataBtn" class="btn-success">📥 Cargar Datos</button>
       </div>
       <div id="connectionResult"></div>
     </div>
 
     <!-- Filtros -->
     <div class="filters">
-      <h3>📊 Filtros de Reporte</h3>
+      <h3>🔍 Filtros</h3>
       <div class="filter-group">
-        <div class="filter-item">
+        <div>
           <label for="fechaInicio">Fecha Inicio:</label>
           <input type="date" id="fechaInicio">
         </div>
-        <div class="filter-item">
+        <div>
           <label for="fechaFin">Fecha Fin:</label>
           <input type="date" id="fechaFin">
         </div>
-        <div class="filter-item">
+        <div>
           <label for="usuarioFiltro">Usuario:</label>
           <select id="usuarioFiltro">
-            <option value="">Todos los usuarios</option>
+            <option value="">Todos</option>
             <option value="Ana">Ana</option>
             <option value="Juan">Juan</option>
             <option value="Luis">Luis</option>
@@ -185,10 +156,10 @@
             <option value="Pedro">Pedro</option>
           </select>
         </div>
-        <div class="filter-item">
+        <div>
           <label for="proyectoFiltro">Proyecto:</label>
           <select id="proyectoFiltro">
-            <option value="">Todos los proyectos</option>
+            <option value="">Todos</option>
             <option value="Hyatt">Hyatt</option>
             <option value="MAriott">MAriott</option>
             <option value="Hilton">Hilton</option>
@@ -199,42 +170,34 @@
       </div>
       <div class="action-buttons">
         <button id="btnFiltrar">🔍 Aplicar Filtros</button>
-        <button id="btnLimpiar" class="btn-warning">🗑️ Limpiar Filtros</button>
-        <button id="btnCargarDatos" class="btn-success">🔄 Cargar Datos</button>
+        <button id="btnLimpiar" class="btn-warning">🗑️ Limpiar</button>
       </div>
     </div>
 
     <!-- Mensajes -->
-    <div id="errorMessage" class="error-message hidden"></div>
-    <div id="successMessage" class="success-message hidden"></div>
+    <div id="messageArea"></div>
 
     <!-- Resultados -->
-    <div class="results">
-      <div id="loading" class="loading hidden">
-        <p>⏳ Cargando datos...</p>
-      </div>
+    <div id="loading" class="loading hidden">⏳ Cargando datos...</div>
+    
+    <div id="resultados" class="hidden">
+      <h3>📋 Resultados (<span id="totalRegistros">0</span> registros)</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Usuario</th>
+            <th>QR Data</th>
+            <th>Proyecto</th>
+            <th>Comentarios</th>
+          </tr>
+        </thead>
+        <tbody id="cuerpoTabla"></tbody>
+      </table>
       
-      <div id="resultados" class="hidden">
-        <h3>📋 Resultados</h3>
-        <table id="tablaResultados">
-          <thead>
-            <tr>
-              <th>Fecha</th>
-              <th>Usuario</th>
-              <th>QR Data</th>
-              <th>Proyecto</th>
-              <th>Comentarios</th>
-            </tr>
-          </thead>
-          <tbody id="cuerpoTabla">
-          </tbody>
-        </table>
-        
-        <div class="action-buttons">
-          <button id="btnExportarExcel" class="btn-success">📊 Exportar a Excel</button>
-          <button id="btnExportarPDF" class="btn-warning">📄 Exportar a PDF</button>
-          <button id="btnEnviarEmail" class="btn-danger">📧 Enviar por Email</button>
-        </div>
+      <div class="action-buttons">
+        <button id="btnExportarExcel" class="btn-success">📊 Exportar Excel</button>
+        <button id="btnExportarPDF" class="btn-warning">📄 Exportar PDF</button>
       </div>
     </div>
   </div>
@@ -246,303 +209,278 @@
     let datosFiltrados = [];
 
     // Elementos DOM
-    const scriptUrlInput = document.getElementById('scriptUrlInput');
-    const testConnectionBtn = document.getElementById('testConnectionBtn');
-    const saveUrlBtn = document.getElementById('saveUrlBtn');
-    const connectionResult = document.getElementById('connectionResult');
-    const fechaInicio = document.getElementById('fechaInicio');
-    const fechaFin = document.getElementById('fechaFin');
-    const usuarioFiltro = document.getElementById('usuarioFiltro');
-    const proyectoFiltro = document.getElementById('proyectoFiltro');
-    const btnFiltrar = document.getElementById('btnFiltrar');
-    const btnLimpiar = document.getElementById('btnLimpiar');
-    const btnCargarDatos = document.getElementById('btnCargarDatos');
-    const btnExportarExcel = document.getElementById('btnExportarExcel');
-    const btnExportarPDF = document.getElementById('btnExportarPDF');
-    const btnEnviarEmail = document.getElementById('btnEnviarEmail');
-    const cuerpoTabla = document.getElementById('cuerpoTabla');
-    const loading = document.getElementById('loading');
-    const resultados = document.getElementById('resultados');
-    const errorMessage = document.getElementById('errorMessage');
-    const successMessage = document.getElementById('successMessage');
+    const elements = {
+      scriptUrlInput: document.getElementById('scriptUrlInput'),
+      testConnectionBtn: document.getElementById('testConnectionBtn'),
+      saveUrlBtn: document.getElementById('saveUrlBtn'),
+      loadDataBtn: document.getElementById('loadDataBtn'),
+      connectionResult: document.getElementById('connectionResult'),
+      fechaInicio: document.getElementById('fechaInicio'),
+      fechaFin: document.getElementById('fechaFin'),
+      usuarioFiltro: document.getElementById('usuarioFiltro'),
+      proyectoFiltro: document.getElementById('proyectoFiltro'),
+      btnFiltrar: document.getElementById('btnFiltrar'),
+      btnLimpiar: document.getElementById('btnLimpiar'),
+      btnExportarExcel: document.getElementById('btnExportarExcel'),
+      btnExportarPDF: document.getElementById('btnExportarPDF'),
+      cuerpoTabla: document.getElementById('cuerpoTabla'),
+      loading: document.getElementById('loading'),
+      resultados: document.getElementById('resultados'),
+      messageArea: document.getElementById('messageArea'),
+      totalRegistros: document.getElementById('totalRegistros')
+    };
 
-    // Cargar configuración guardada
-    function cargarConfiguracion() {
-      const savedUrl = localStorage.getItem('googleScriptUrl');
-      if (savedUrl) {
-        scriptUrlInput.value = savedUrl;
-        SCRIPT_URL = savedUrl;
-        mostrarMensaje('✅ Configuración cargada', 'success');
-      } else {
-        // Usar URL por defecto
-        SCRIPT_URL = scriptUrlInput.value;
+    // Utilidades
+    function showMessage(message, type = 'info') {
+      elements.messageArea.innerHTML = `<div class="${type}">${message}</div>`;
+    }
+
+    function showLoading(show) {
+      elements.loading.classList.toggle('hidden', !show);
+    }
+
+    function formatDate(dateString) {
+      try {
+        return new Date(dateString).toLocaleDateString('es-ES', {
+          year: 'numeric', month: '2-digit', day: '2-digit',
+          hour: '2-digit', minute: '2-digit'
+        });
+      } catch {
+        return dateString;
       }
     }
 
-    // Guardar configuración
-    function guardarConfiguracion() {
-      const url = scriptUrlInput.value.trim();
+    function setDefaultDates() {
+      const hoy = new Date();
+      const hace30Dias = new Date(hoy.getTime() - (30 * 24 * 60 * 60 * 1000));
+      elements.fechaInicio.valueAsDate = hace30Dias;
+      elements.fechaFin.valueAsDate = hoy;
+    }
+
+    // Configuración
+    function loadConfig() {
+      const savedUrl = localStorage.getItem('googleScriptUrl');
+      if (savedUrl) {
+        elements.scriptUrlInput.value = savedUrl;
+        SCRIPT_URL = savedUrl;
+        showMessage('✅ Configuración cargada', 'success');
+      } else {
+        SCRIPT_URL = elements.scriptUrlInput.value;
+      }
+    }
+
+    function saveConfig() {
+      const url = elements.scriptUrlInput.value.trim();
       if (url) {
         localStorage.setItem('googleScriptUrl', url);
         SCRIPT_URL = url;
-        mostrarMensaje('✅ URL guardada correctamente', 'success');
+        showMessage('✅ URL guardada', 'success');
         return true;
-      } else {
-        mostrarMensaje('❌ Por favor ingresa una URL válida', 'error');
-        return false;
       }
+      showMessage('❌ Ingresa una URL válida', 'error');
+      return false;
     }
 
-    // Probar conexión
-    async function probarConexion() {
-      if (!guardarConfiguracion()) return;
-
-      connectionResult.innerHTML = '<div style="color: #856404;">🔍 Probando conexión...</div>';
+    // Conexión y datos
+    async function testConnection() {
+      if (!saveConfig()) return;
+      
+      elements.connectionResult.innerHTML = '<div style="color: #666;">🔍 Probando conexión...</div>';
       
       try {
-        console.log('Probando conexión a:', SCRIPT_URL + '?action=getAllData');
+        console.log('🔗 Probando:', SCRIPT_URL + '?action=getAllData');
+        
+        // Intentar con timeout
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10000);
         
         const response = await fetch(SCRIPT_URL + '?action=getAllData', {
           method: 'GET',
-          mode: 'no-cors' // Intentar sin CORS primero
-        }).catch(async () => {
-          // Si no-cors falla, intentar con cors
-          return await fetch(SCRIPT_URL + '?action=getAllData');
+          signal: controller.signal
         });
-
-        if (!response || !response.ok) {
-          throw new Error('No se pudo conectar al servidor');
-        }
-
-        const data = await response.text();
-        connectionResult.innerHTML = '<div style="color: #155724;">✅ Conexión exitosa</div>';
-        mostrarMensaje('✅ Conexión establecida correctamente', 'success');
+        
+        clearTimeout(timeout);
+        
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        
+        const text = await response.text();
+        console.log('📨 Respuesta:', text.substring(0, 200));
+        
+        const data = JSON.parse(text);
+        
+        elements.connectionResult.innerHTML = 
+          `<div style="color: #2e7d32;">✅ Conexión exitosa (${data.length} registros)</div>`;
+        showMessage('✅ Conexión establecida', 'success');
         
       } catch (error) {
-        console.error('Error de conexión:', error);
-        connectionResult.innerHTML = '<div style="color: #721c24;">❌ Error de conexión: ' + error.message + '</div>';
-        mostrarMensaje('❌ Error de conexión: ' + error.message, 'error');
+        console.error('❌ Error conexión:', error);
+        const errorMsg = error.name === 'AbortError' ? 'Timeout - Servidor no responde' : error.message;
+        elements.connectionResult.innerHTML = 
+          `<div style="color: #c62828;">❌ Error: ${errorMsg}</div>`;
+        showMessage(`❌ Error de conexión: ${errorMsg}`, 'error');
       }
     }
 
-    // Cargar datos
-    async function cargarDatos() {
+    async function loadData() {
       if (!SCRIPT_URL) {
-        mostrarMensaje('❌ Primero configura la URL', 'error');
+        showMessage('❌ Configura la URL primero', 'error');
         return;
       }
 
-      mostrarLoading(true);
-      mostrarMensaje('', 'clear');
+      showLoading(true);
+      showMessage('📥 Cargando datos...', 'success');
 
       try {
-        console.log('Cargando datos desde:', SCRIPT_URL);
+        console.log('🔄 Cargando datos desde:', SCRIPT_URL);
         
         const response = await fetch(SCRIPT_URL + '?action=getAllData');
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
         
-        if (!response.ok) {
-          throw new Error(`Error HTTP: ${response.status}`);
-        }
-
         const text = await response.text();
-        console.log('Respuesta recibida:', text.substring(0, 200));
-
-        let data;
-        try {
-          data = JSON.parse(text);
-        } catch (e) {
-          throw new Error('El servidor no devolvió JSON válido');
-        }
-
-        if (!Array.isArray(data)) {
-          throw new Error('La respuesta no es un array válido');
-        }
-
+        const data = JSON.parse(text);
+        
+        if (!Array.isArray(data)) throw new Error('Respuesta inválida');
+        
         datosCompletos = data;
         datosFiltrados = [...datosCompletos];
         
-        mostrarMensaje(`✅ ${datosCompletos.length} registros cargados`, 'success');
-        actualizarTabla();
+        showMessage(`✅ ${data.length} registros cargados`, 'success');
+        updateTable();
         
       } catch (error) {
-        console.error('Error cargando datos:', error);
-        mostrarMensaje('❌ Error cargando datos: ' + error.message, 'error');
+        console.error('❌ Error cargando datos:', error);
+        showMessage(`❌ Error: ${error.message}`, 'error');
         
-        // Datos de ejemplo para testing
+        // Datos de ejemplo
         datosCompletos = [{
           fecha: new Date().toISOString(),
-          usuario: 'Usuario Ejemplo',
-          qrData: 'QR_EJEMPLO_001',
-          proyecto: 'Proyecto Ejemplo',
-          comentarios: 'Datos de ejemplo - Error de conexión real'
+          usuario: 'Ejemplo',
+          qrData: 'DEMO_001',
+          proyecto: 'Demo',
+          comentarios: 'Datos de ejemplo'
         }];
         datosFiltrados = [...datosCompletos];
-        actualizarTabla();
+        updateTable();
       } finally {
-        mostrarLoading(false);
+        showLoading(false);
       }
     }
 
-    // Actualizar tabla
-    function actualizarTabla() {
-      cuerpoTabla.innerHTML = '';
+    // Tabla y filtros
+    function updateTable() {
+      elements.cuerpoTabla.innerHTML = '';
+      elements.totalRegistros.textContent = datosFiltrados.length;
       
       if (datosFiltrados.length === 0) {
-        cuerpoTabla.innerHTML = '<tr><td colspan="5" style="text-align: center;">No hay datos que coincidan con los filtros</td></tr>';
+        elements.cuerpoTabla.innerHTML = 
+          '<tr><td colspan="5" style="text-align: center;">No hay datos</td></tr>';
       } else {
         datosFiltrados.forEach(item => {
-          const fila = document.createElement('tr');
-          fila.innerHTML = `
-            <td>${formatearFecha(item.fecha)}</td>
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>${formatDate(item.fecha)}</td>
             <td>${item.usuario}</td>
             <td>${item.qrData}</td>
             <td>${item.proyecto}</td>
             <td>${item.comentarios || ''}</td>
           `;
-          cuerpoTabla.appendChild(fila);
+          elements.cuerpoTabla.appendChild(row);
         });
       }
       
-      resultados.classList.remove('hidden');
+      elements.resultados.classList.remove('hidden');
     }
 
-    // Aplicar filtros
-    function aplicarFiltros() {
-      let filtrados = [...datosCompletos];
+    function applyFilters() {
+      let filtered = [...datosCompletos];
       
-      if (fechaInicio.value) {
-        const inicio = new Date(fechaInicio.value);
-        filtrados = filtrados.filter(item => new Date(item.fecha) >= inicio);
+      if (elements.fechaInicio.value) {
+        const start = new Date(elements.fechaInicio.value);
+        filtered = filtered.filter(item => new Date(item.fecha) >= start);
       }
       
-      if (fechaFin.value) {
-        const fin = new Date(fechaFin.value);
-        fin.setHours(23, 59, 59, 999);
-        filtrados = filtrados.filter(item => new Date(item.fecha) <= fin);
+      if (elements.fechaFin.value) {
+        const end = new Date(elements.fechaFin.value);
+        end.setHours(23, 59, 59, 999);
+        filtered = filtered.filter(item => new Date(item.fecha) <= end);
       }
       
-      if (usuarioFiltro.value) {
-        filtrados = filtrados.filter(item => item.usuario === usuarioFiltro.value);
+      if (elements.usuarioFiltro.value) {
+        filtered = filtered.filter(item => item.usuario === elements.usuarioFiltro.value);
       }
       
-      if (proyectoFiltro.value) {
-        filtrados = filtrados.filter(item => item.proyecto === proyectoFiltro.value);
+      if (elements.proyectoFiltro.value) {
+        filtered = filtered.filter(item => item.proyecto === elements.proyectoFiltro.value);
       }
       
-      datosFiltrados = filtrados;
-      actualizarTabla();
-      mostrarMensaje(`✅ ${datosFiltrados.length} registros filtrados`, 'success');
+      datosFiltrados = filtered;
+      updateTable();
+      showMessage(`✅ ${filtered.length} registros filtrados`, 'success');
     }
 
-    // Limpiar filtros
-    function limpiarFiltros() {
-      fechaInicio.value = '';
-      fechaFin.value = '';
-      usuarioFiltro.value = '';
-      proyectoFiltro.value = '';
-      establecerFechasPorDefecto();
+    function clearFilters() {
+      elements.fechaInicio.value = '';
+      elements.fechaFin.value = '';
+      elements.usuarioFiltro.value = '';
+      elements.proyectoFiltro.value = '';
+      setDefaultDates();
       datosFiltrados = [...datosCompletos];
-      actualizarTabla();
-      mostrarMensaje('✅ Filtros limpiados', 'success');
+      updateTable();
+      showMessage('✅ Filtros limpiados', 'success');
     }
 
-    // Utilidades
-    function formatearFecha(fechaString) {
-      try {
-        return new Date(fechaString).toLocaleDateString('es-ES', {
-          year: 'numeric',
-          month: '2-digit',
-          day: '2-digit',
-          hour: '2-digit',
-          minute: '2-digit'
-        });
-      } catch (e) {
-        return fechaString;
-      }
-    }
-
-    function establecerFechasPorDefecto() {
-      const hoy = new Date();
-      const hace30Dias = new Date();
-      hace30Dias.setDate(hoy.getDate() - 30);
-      fechaInicio.valueAsDate = hace30Dias;
-      fechaFin.valueAsDate = hoy;
-    }
-
-    function mostrarLoading(mostrar) {
-      loading.classList.toggle('hidden', !mostrar);
-    }
-
-    function mostrarMensaje(mensaje, tipo) {
-      if (tipo === 'error') {
-        errorMessage.textContent = mensaje;
-        errorMessage.classList.remove('hidden');
-        successMessage.classList.add('hidden');
-      } else if (tipo === 'success') {
-        successMessage.textContent = mensaje;
-        successMessage.classList.remove('hidden');
-        errorMessage.classList.add('hidden');
-      } else {
-        errorMessage.classList.add('hidden');
-        successMessage.classList.add('hidden');
-      }
-    }
-
-    // Exportar funciones
-    function exportarAExcel() {
+    // Exportar
+    function exportToExcel() {
       if (datosFiltrados.length === 0) {
-        mostrarMensaje('❌ No hay datos para exportar', 'error');
+        showMessage('❌ No hay datos para exportar', 'error');
         return;
       }
       
-      let csv = "Fecha,Usuario,QR Data,Proyecto,Comentarios\n";
+      let csv = 'Fecha,Usuario,QR Data,Proyecto,Comentarios\n';
       datosFiltrados.forEach(item => {
-        csv += `"${formatearFecha(item.fecha)}","${item.usuario}","${item.qrData}","${item.proyecto}","${item.comentarios || ''}"\n`;
+        csv += `"${formatDate(item.fecha)}","${item.usuario}","${item.qrData}","${item.proyecto}","${item.comentarios || ''}"\n`;
       });
       
       const link = document.createElement('a');
       link.href = 'data:text/csv;charset=utf-8,' + encodeURI(csv);
       link.download = `reporte_${new Date().toISOString().split('T')[0]}.csv`;
       link.click();
-      mostrarMensaje('✅ Datos exportados a CSV', 'success');
+      showMessage('✅ Datos exportados a CSV', 'success');
     }
 
-    function exportarAPDF() {
+    function exportToPDF() {
       if (datosFiltrados.length === 0) {
-        mostrarMensaje('❌ No hay datos para exportar', 'error');
+        showMessage('❌ No hay datos para exportar', 'error');
         return;
       }
       
-      const ventana = window.open('', '_blank');
-      ventana.document.write(`
+      const win = window.open('', '_blank');
+      win.document.write(`
         <html>
           <head><title>Reporte</title></head>
           <body>
             <h1>Reporte de Escaneos</h1>
-            <table border="1">${document.getElementById('tablaResultados').innerHTML}</table>
+            <table border="1">${document.querySelector('table').innerHTML}</table>
           </body>
         </html>
       `);
-      ventana.print();
+      win.print();
     }
 
-    // Event Listeners
-    testConnectionBtn.addEventListener('click', probarConexion);
-    saveUrlBtn.addEventListener('click', guardarConfiguracion);
-    btnCargarDatos.addEventListener('click', cargarDatos);
-    btnFiltrar.addEventListener('click', aplicarFiltros);
-    btnLimpiar.addEventListener('click', limpiarFiltros);
-    btnExportarExcel.addEventListener('click', exportarAExcel);
-    btnExportarPDF.addEventListener('click', exportarAPDF);
-    btnEnviarEmail.addEventListener('click', () => {
-      mostrarMensaje('📧 Función de email disponible cuando la conexión esté funcionando', 'success');
-    });
+    // Event listeners
+    elements.testConnectionBtn.addEventListener('click', testConnection);
+    elements.saveUrlBtn.addEventListener('click', saveConfig);
+    elements.loadDataBtn.addEventListener('click', loadData);
+    elements.btnFiltrar.addEventListener('click', applyFilters);
+    elements.btnLimpiar.addEventListener('click', clearFilters);
+    elements.btnExportarExcel.addEventListener('click', exportToExcel);
+    elements.btnExportarPDF.addEventListener('click', exportToPDF);
 
-    // Inicializar
-    document.addEventListener('DOMContentLoaded', function() {
-      cargarConfiguracion();
-      establecerFechasPorDefecto();
-      mostrarMensaje('👋 Configura la URL y haz clic en "Probar Conexión"', 'success');
+    // Inicialización
+    document.addEventListener('DOMContentLoaded', () => {
+      loadConfig();
+      setDefaultDates();
+      showMessage('👋 Configura la URL y haz clic en "Probar Conexión"', 'success');
     });
   </script>
 </body>
