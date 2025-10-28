@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Reportes - Escaneos QR y Códigos de Barras</title>
   <style>
+    /* Mantener el mismo CSS anterior, solo cambio el JavaScript */
     body {
       font-family: Arial, sans-serif;
       margin: 0;
@@ -344,8 +345,8 @@
   </div>
 
   <script>
-    // URL del Google Apps Script - CORREGIDA
-    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwYC-YrMEZQTMuGMeAcpIlGmuehRJSQKj43k6yCGQpkZoZYdPqSsLA1rbcz8hWZw4iB/exec';
+    // URL del Google Apps Script
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzDgU6Q-xRgUgotBXSgXVN0OXEXw4UaSncSIrRkq1rJPgQjfhmxnNhhrHP9RhwTdc5g/exec';
 
     // Elementos DOM
     const fechaInicio = document.getElementById('fechaInicio');
@@ -395,7 +396,7 @@
       }
     }
 
-    // Cargar datos iniciales
+    // Cargar datos iniciales - VERSIÓN MEJORADA
     async function cargarDatosIniciales() {
       mostrarLoading(true);
       mostrarError();
@@ -403,30 +404,47 @@
       try {
         console.log('Cargando datos desde:', SCRIPT_URL + '?action=getAllData');
         
-        const response = await fetch(SCRIPT_URL + '?action=getAllData');
+        // Usar fetch con manejo de redirección
+        const response = await fetch(SCRIPT_URL + '?action=getAllData', {
+          redirect: 'follow'
+        });
         
         if (!response.ok) {
           throw new Error(`Error HTTP: ${response.status} ${response.statusText}`);
         }
         
-        const data = await response.json();
+        const text = await response.text();
+        console.log('Respuesta recibida (texto):', text.substring(0, 200) + '...');
+        
+        let data;
+        try {
+          data = JSON.parse(text);
+        } catch (parseError) {
+          console.error('Error parseando JSON:', parseError);
+          // Si no es JSON, puede ser el formato antiguo
+          throw new Error('El servidor no está devolviendo JSON válido. Respuesta: ' + text.substring(0, 100));
+        }
         
         // Verificar si la respuesta es un array
         if (!Array.isArray(data)) {
-          throw new Error('La respuesta del servidor no es válida');
+          throw new Error('La respuesta del servidor no es un array válido');
         }
         
         datosCompletos = data;
-        console.log('Datos cargados:', datosCompletos.length, 'registros');
+        console.log('Datos cargados correctamente:', datosCompletos.length, 'registros');
         
         aplicarFiltros();
         mostrarLoading(false);
       } catch (error) {
-        console.error('Error al cargar datos:', error);
-        mostrarError('Error al cargar los datos: ' + error.message + '. Verifica que el Google Apps Script esté correctamente configurado.');
+        console.error('Error completo al cargar datos:', error);
+        mostrarError('Error al cargar los datos: ' + error.message + 
+                    '. Verifica que el Google Apps Script esté actualizado y tenga la función getAllData.');
         mostrarLoading(false);
       }
     }
+
+    // El resto de las funciones se mantienen igual que en la versión anterior
+    // Aplicar filtros, actualizar tabla, etc...
 
     // Aplicar filtros
     function aplicarFiltros() {
@@ -443,7 +461,7 @@
       
       if (fechaFin.value) {
         const fechaFinObj = new Date(fechaFin.value);
-        fechaFinObj.setHours(23, 59, 59, 999); // Incluir todo el día
+        fechaFinObj.setHours(23, 59, 59, 999);
         filtrados = filtrados.filter(item => {
           const itemFecha = new Date(item.fecha);
           return itemFecha <= fechaFinObj;
@@ -492,7 +510,6 @@
         cuerpoTabla.appendChild(fila);
       });
       
-      // Actualizar paginación
       const totalPaginas = Math.ceil(datosFiltrados.length / registrosPorPagina);
       infoPagina.textContent = `Página ${paginaActual} de ${totalPaginas}`;
       btnAnterior.disabled = paginaActual <= 1;
@@ -512,7 +529,6 @@
       const usuariosUnicos = new Set(datosFiltrados.map(item => item.usuario)).size;
       const proyectosUnicos = new Set(datosFiltrados.map(item => item.proyecto)).size;
       
-      // Calcular promedio diario
       const fechas = datosFiltrados.map(item => new Date(item.fecha).toDateString());
       const diasUnicos = new Set(fechas).size;
       const promedioDiario = diasUnicos > 0 ? (totalRegistros / diasUnicos).toFixed(1) : 0;
@@ -589,7 +605,6 @@
         return;
       }
       
-      // Crear contenido HTML para el PDF
       let contenidoHTML = `
         <html>
           <head>
@@ -638,7 +653,6 @@
         </html>
       `;
       
-      // Abrir ventana para imprimir (el usuario puede guardar como PDF)
       const ventana = window.open('', '_blank');
       ventana.document.write(contenidoHTML);
       ventana.document.close();
@@ -715,14 +729,6 @@
         if (usuarioFiltro.value) formData.append('usuario', usuarioFiltro.value);
         if (proyectoFiltro.value) formData.append('proyecto', proyectoFiltro.value);
 
-        console.log('Enviando email con datos:', {
-          email, asunto, mensaje,
-          fechaInicio: fechaInicio.value,
-          fechaFin: fechaFin.value,
-          usuario: usuarioFiltro.value,
-          proyecto: proyectoFiltro.value
-        });
-
         const response = await fetch(SCRIPT_URL, {
           method: 'POST',
           headers: {
@@ -736,7 +742,6 @@
         }
         
         const result = await response.text();
-        console.log('Respuesta del servidor:', result);
         
         if (result.includes('ÉXITO')) {
           alert('Email enviado exitosamente');
@@ -755,7 +760,6 @@
       emailModal.classList.add('hidden');
     });
 
-    // Cerrar modal haciendo clic fuera de él
     emailModal.addEventListener('click', (e) => {
       if (e.target === emailModal) {
         emailModal.classList.add('hidden');
@@ -771,4 +775,3 @@
   </script>
 </body>
 </html>
-
