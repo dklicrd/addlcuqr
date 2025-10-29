@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QR Scanner Especializado</title>
+    <title>Escáner QR para Códigos de Producto</title>
     <style>
         :root {
             --primary: #2563eb;
@@ -83,7 +83,7 @@
             }
         }
         
-        .camera-section, .diagnostic-section {
+        .camera-section, .result-section {
             display: flex;
             flex-direction: column;
         }
@@ -155,7 +155,6 @@
             align-items: center;
             justify-content: center;
             gap: 8px;
-            flex: 1;
         }
         
         .btn-primary {
@@ -262,8 +261,63 @@
             opacity: 0.8;
         }
         
-        .results {
+        .product-display {
+            background: #f8fafc;
+            border-radius: 8px;
+            padding: 20px;
             margin-top: 20px;
+        }
+        
+        .product-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .product-logo {
+            width: 60px;
+            height: 60px;
+            background: var(--primary);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+        
+        .product-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--dark);
+        }
+        
+        .product-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 15px;
+        }
+        
+        .detail-item {
+            padding: 12px;
+            background: white;
+            border-radius: 8px;
+            border-left: 4px solid var(--primary);
+        }
+        
+        .detail-label {
+            font-size: 0.85rem;
+            color: #6b7280;
+            margin-bottom: 5px;
+        }
+        
+        .detail-value {
+            font-weight: 600;
+            color: var(--dark);
         }
         
         .result-item {
@@ -359,13 +413,50 @@
         .quality-poor {
             color: var(--error);
         }
+        
+        .upload-area {
+            border: 2px dashed var(--primary);
+            border-radius: 10px;
+            padding: 40px 20px;
+            text-align: center;
+            margin-bottom: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .upload-area:hover {
+            background: rgba(37, 99, 235, 0.05);
+        }
+        
+        .upload-area i {
+            font-size: 3rem;
+            color: var(--primary);
+            margin-bottom: 15px;
+        }
+        
+        #fileInput {
+            display: none;
+        }
+        
+        .preview-container {
+            margin-top: 20px;
+            text-align: center;
+        }
+        
+        #imagePreview {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 10px;
+            display: none;
+        }
     </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>QR Scanner Especializado</h1>
-            <p class="subtitle">Solución avanzada para códigos QR difíciles de leer</p>
+            <h1>Escáner QR para Códigos de Producto</h1>
+            <p class="subtitle">Especializado en códigos QR industriales como ASSA ABLOY</p>
         </header>
         
         <div class="card">
@@ -396,9 +487,26 @@
                             <i class="fas fa-stop"></i> Detener
                         </button>
                     </div>
+                    
+                    <div class="upload-area" id="uploadArea">
+                        <i class="fas fa-file-upload"></i>
+                        <h3>O sube una imagen del código QR</h3>
+                        <p>Formatos soportados: JPG, PNG, GIF</p>
+                        <input type="file" id="fileInput" accept="image/*">
+                    </div>
+                    
+                    <div class="preview-container">
+                        <img id="imagePreview" alt="Vista previa">
+                    </div>
+                    
+                    <div class="controls">
+                        <button id="scanImage" class="btn-success" disabled>
+                            <i class="fas fa-search"></i> Escanear Imagen
+                        </button>
+                    </div>
                 </div>
                 
-                <div class="diagnostic-section">
+                <div class="result-section">
                     <h3 class="card-title">
                         <i class="fas fa-search"></i> Estrategias de Escaneo
                     </h3>
@@ -487,9 +595,26 @@
             </div>
         </div>
         
+        <div class="card" id="productResult" style="display: none;">
+            <h2 class="card-title">
+                <i class="fas fa-box"></i> Información del Producto
+            </h2>
+            
+            <div class="product-display">
+                <div class="product-header">
+                    <div class="product-logo">AA</div>
+                    <div class="product-title">ASSA ABLOY</div>
+                </div>
+                
+                <div class="product-details" id="productDetails">
+                    <!-- Los detalles del producto se llenarán aquí -->
+                </div>
+            </div>
+        </div>
+        
         <div class="card">
             <h2 class="card-title">
-                <i class="fas fa-list"></i> Resultados
+                <i class="fas fa-list"></i> Resultados en Bruto
             </h2>
             
             <div id="resultsContainer">
@@ -506,7 +631,6 @@
     </div>
 
     <!-- Scripts -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
     
     <script>
@@ -526,6 +650,12 @@
         const focusValue = document.getElementById('focusValue');
         const brightnessSlider = document.getElementById('brightness');
         const brightnessValue = document.getElementById('brightnessValue');
+        const fileInput = document.getElementById('fileInput');
+        const uploadArea = document.getElementById('uploadArea');
+        const imagePreview = document.getElementById('imagePreview');
+        const scanImageBtn = document.getElementById('scanImage');
+        const productResult = document.getElementById('productResult');
+        const productDetails = document.getElementById('productDetails');
         
         // Estrategias
         const strategyElements = document.querySelectorAll('.strategy');
@@ -585,6 +715,84 @@
             brightnessSlider.addEventListener('input', () => {
                 brightnessValue.textContent = `${brightnessSlider.value}%`;
             });
+            
+            // Configurar subida de archivos
+            uploadArea.addEventListener('click', () => {
+                fileInput.click();
+            });
+            
+            fileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    
+                    reader.onload = (event) => {
+                        imagePreview.src = event.target.result;
+                        imagePreview.style.display = 'block';
+                        scanImageBtn.disabled = false;
+                    };
+                    
+                    reader.readAsDataURL(file);
+                }
+            });
+            
+            scanImageBtn.addEventListener('click', scanUploadedImage);
+        }
+        
+        // Escanear imagen subida
+        function scanUploadedImage() {
+            if (!imagePreview.src) return;
+            
+            // Configurar canvas con la imagen
+            canvas.width = imagePreview.naturalWidth;
+            canvas.height = imagePreview.naturalHeight;
+            canvasContext.drawImage(imagePreview, 0, 0);
+            
+            // Obtener configuración
+            const preProcessMethod = document.getElementById('preProcess').value;
+            const resolution = document.getElementById('resolution').value;
+            const brightness = parseInt(brightnessSlider.value) / 100;
+            
+            let imageData = canvasContext.getImageData(0, 0, canvas.width, canvas.height);
+            
+            // Aplicar pre-procesamiento
+            if (preProcessMethod !== 'none') {
+                imageData = processImage(imageData, preProcessMethod);
+            }
+            
+            // Aplicar brillo
+            if (brightness !== 1) {
+                const data = imageData.data;
+                for (let i = 0; i < data.length; i += 4) {
+                    data[i] = Math.min(255, data[i] * brightness);
+                    data[i + 1] = Math.min(255, data[i + 1] * brightness);
+                    data[i + 2] = Math.min(255, data[i + 2] * brightness);
+                }
+            }
+            
+            // Análisis de calidad
+            const quality = analyzeImageQuality(imageData);
+            updateDiagnostics(quality);
+            
+            // Configuración actual
+            const config = strategyConfigs[currentStrategy];
+            
+            // Intentar escanear QR
+            try {
+                const code = jsQR(imageData.data, canvas.width, canvas.height, config);
+                
+                if (code) {
+                    handleScanResult('success', 'QR detectado', code.data, code.confidence);
+                    updateDebugInfo(`QR detectado con confianza: ${(code.confidence * 100).toFixed(1)}%`);
+                } else {
+                    handleScanResult('error', 'No se detectó código QR', 'Intenta con otra estrategia o ajusta la configuración');
+                }
+                
+            } catch (error) {
+                console.warn('Error en escaneo:', error);
+                updateDebugInfo(`Error en escaneo: ${error.message}`);
+                handleScanResult('error', 'Error en el escaneo', error.message);
+            }
         }
         
         // Iniciar cámara
@@ -851,6 +1059,103 @@
             scanCount.textContent = scanAttempts;
         }
         
+        // Parsear información del producto ASSA ABLOY
+        function parseProductInfo(data) {
+            const lines = data.split('\n').filter(line => line.trim() !== '');
+            const productInfo = {};
+            
+            lines.forEach(line => {
+                if (line.includes('P000550143')) {
+                    productInfo.modelo = line.trim();
+                } else if (line.includes('LCU')) {
+                    productInfo.lcu = line.trim();
+                } else if (line.includes('HA')) {
+                    productInfo.codigo = line.trim();
+                } else if (line.includes('Made In')) {
+                    productInfo.origen = line.trim();
+                } else if (line.includes('IC:')) {
+                    productInfo.ic = line.split(':')[1].trim();
+                } else if (line.includes('FCC-ID:')) {
+                    productInfo.fcc = line.split(':')[1].trim();
+                } else if (line.includes('Anatel:')) {
+                    productInfo.anatel = line.split(':')[1].trim();
+                }
+            });
+            
+            return productInfo;
+        }
+        
+        // Mostrar información del producto
+        function displayProductInfo(productInfo) {
+            let detailsHTML = '';
+            
+            if (productInfo.modelo) {
+                detailsHTML += `
+                    <div class="detail-item">
+                        <div class="detail-label">Modelo</div>
+                        <div class="detail-value">${productInfo.modelo}</div>
+                    </div>
+                `;
+            }
+            
+            if (productInfo.lcu) {
+                detailsHTML += `
+                    <div class="detail-item">
+                        <div class="detail-label">LCU</div>
+                        <div class="detail-value">${productInfo.lcu}</div>
+                    </div>
+                `;
+            }
+            
+            if (productInfo.codigo) {
+                detailsHTML += `
+                    <div class="detail-item">
+                        <div class="detail-label">Código</div>
+                        <div class="detail-value">${productInfo.codigo}</div>
+                    </div>
+                `;
+            }
+            
+            if (productInfo.origen) {
+                detailsHTML += `
+                    <div class="detail-item">
+                        <div class="detail-label">Origen</div>
+                        <div class="detail-value">${productInfo.origen}</div>
+                    </div>
+                `;
+            }
+            
+            if (productInfo.ic) {
+                detailsHTML += `
+                    <div class="detail-item">
+                        <div class="detail-label">IC</div>
+                        <div class="detail-value">${productInfo.ic}</div>
+                    </div>
+                `;
+            }
+            
+            if (productInfo.fcc) {
+                detailsHTML += `
+                    <div class="detail-item">
+                        <div class="detail-label">FCC ID</div>
+                        <div class="detail-value">${productInfo.fcc}</div>
+                    </div>
+                `;
+            }
+            
+            if (productInfo.anatel) {
+                detailsHTML += `
+                    <div class="detail-item">
+                        <div class="detail-label">Anatel</div>
+                        <div class="detail-value">${productInfo.anatel}</div>
+                    </div>
+                `;
+            }
+            
+            productDetails.innerHTML = detailsHTML;
+            productResult.style.display = 'block';
+        }
+        
         // Manejar resultado del escaneo
         function handleScanResult(type, message, data, confidence) {
             let resultHTML = '';
@@ -867,6 +1172,16 @@
                         </div>
                     </div>
                 `;
+                
+                // Intentar parsear como información de producto ASSA ABLOY
+                try {
+                    const productInfo = parseProductInfo(data);
+                    if (Object.keys(productInfo).length > 0) {
+                        displayProductInfo(productInfo);
+                    }
+                } catch (error) {
+                    console.warn('No se pudo parsear como información de producto:', error);
+                }
             } else {
                 resultHTML = `
                     <div class="result-item">
