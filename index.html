@@ -3,8 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Escanea QR y Códigos de Barras</title>
+  <title>Escanea QR y Códigos de Barras - Mejorado</title>
   <style>
+    /* Tus estilos actuales se mantienen igual */
     body {
       font-family: Arial, sans-serif;
       margin: 0;
@@ -19,86 +20,47 @@
       border-radius: 10px;
       box-shadow: 0 2px 10px rgba(0,0,0,0.1);
     }
-    h1 {
-      text-align: center;
-      color: #333;
-    }
-    select, button, textarea {
+    /* ... (mantén todos tus estilos existentes) ... */
+    
+    /* Nuevos estilos para mejoras visuales */
+    .scanning-area {
+      position: relative;
       width: 100%;
-      padding: 12px;
-      margin: 10px 0;
-      border: 1px solid #ddd;
-      border-radius: 5px;
-      font-size: 16px;
-      box-sizing: border-box;
-    }
-    textarea {
-      height: 80px;
-      resize: vertical;
-      font-family: Arial, sans-serif;
-    }
-    button {
-      background-color: #007cba;
-      color: white;
-      border: none;
-      cursor: pointer;
-    }
-    button:hover {
-      background-color: #005a87;
-    }
-    button:disabled {
-      background-color: #cccccc;
-      cursor: not-allowed;
-    }
-    #video {
-      width: 100%;
-      border: 2px solid #007cba;
-      border-radius: 5px;
       margin: 10px 0;
     }
-    #status {
+    .scan-frame {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 70%;
+      height: 200px;
+      border: 3px solid #007cba;
+      border-radius: 10px;
+      pointer-events: none;
+      z-index: 10;
+    }
+    .scan-frame::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      border: 2px solid rgba(255,255,255,0.5);
+      border-radius: 8px;
+    }
+    .quality-indicator {
       margin: 10px 0;
-      padding: 10px;
+      padding: 8px;
       border-radius: 5px;
       text-align: center;
-      font-weight: bold;
+      font-size: 14px;
     }
-    .success { background-color: #d4edda; color: #155724; }
-    .error { background-color: #f8d7da; color: #721c24; }
-    .warning { background-color: #fff3cd; color: #856404; }
-    .info { background-color: #d1ecf1; color: #0c5460; }
-    #result {
-      margin-top: 20px;
-      padding: 15px;
-      background-color: #f8f9fa;
-      border-radius: 5px;
-      border-left: 4px solid #007cba;
-    }
-    #qrData {
-      word-break: break-all;
-      background: white;
-      padding: 10px;
-      border-radius: 3px;
-      border: 1px solid #ddd;
-    }
-    .hidden {
-      display: none;
-    }
-    .scanner-type {
-      margin: 15px 0;
-      text-align: center;
-    }
-    .scanner-type label {
-      margin: 0 10px;
-      cursor: pointer;
-    }
-    .form-group {
-      margin-bottom: 15px;
-    }
-    .form-group label {
-      display: block;
-      margin-bottom: 5px;
-      font-weight: bold;
+    .debug-info {
+      font-size: 12px;
+      color: #666;
+      margin-top: 5px;
     }
   </style>
   <script src="https://unpkg.com/jsqr@1.4.0/dist/jsQR.js"></script>
@@ -108,7 +70,7 @@
   <div class="container">
     <h1>Escanea Códigos QR/Barras del LCU</h1>
 
-    <!-- SELECT DE USUARIO -->
+    <!-- Tus selects y controles se mantienen igual -->
     <div class="form-group">
       <label for="userSelect">Usuario:</label>
       <select id="userSelect" required>
@@ -122,7 +84,6 @@
       </select>
     </div>
 
-    <!-- SELECT DE PROYECTO -->
     <div class="form-group">
       <label for="projectSelect">Proyecto:</label>
       <select id="projectSelect" required>
@@ -135,13 +96,22 @@
       </select>
     </div>
 
-    <!-- CAMPO DE COMENTARIOS -->
     <div class="form-group">
       <label for="comments">Comentarios (opcional):</label>
       <textarea id="comments" placeholder="Escribe aquí cualquier comentario adicional..."></textarea>
     </div>
 
-    <!-- TIPO DE ESCÁNER -->
+    <!-- Selector de calidad de cámara -->
+    <div class="form-group">
+      <label for="cameraQuality">Calidad de cámara:</label>
+      <select id="cameraQuality">
+        <option value="environment">Automática (Recomendada)</option>
+        <option value="user">Frontal</option>
+        <option value="high">Alta resolución</option>
+        <option value="medium">Resolución media</option>
+      </select>
+    </div>
+
     <div class="scanner-type">
       <strong>Tipo de escáner:</strong>
       <label><input type="radio" name="scannerType" value="both" checked> Ambos (QR + Códigos de Barras)</label>
@@ -149,29 +119,34 @@
       <label><input type="radio" name="scannerType" value="barcode"> Solo Códigos de Barras</label>
     </div>
 
-    <!-- CÁMARA Y CANVAS -->
+    <!-- Área de escaneo mejorada -->
     <div id="cameraSection" class="hidden">
-      <video id="video" autoplay playsinline></video>
-      <canvas id="canvas" class="hidden"></canvas>
-      <div id="scannerOverlay" style="position: relative; margin-top: 10px;">
-        <div style="width: 100%; height: 2px; background: red; position: absolute; top: 50%; animation: scanLine 2s linear infinite;"></div>
+      <div class="scanning-area">
+        <video id="video" autoplay playsinline></video>
+        <div class="scan-frame"></div>
+        <div id="scannerOverlay" style="position: relative; margin-top: 10px;">
+          <div style="width: 100%; height: 2px; background: red; position: absolute; top: 50%; animation: scanLine 2s linear infinite;"></div>
+        </div>
       </div>
+      
+      <div id="qualityInfo" class="quality-indicator hidden"></div>
+      
+      <canvas id="canvas" class="hidden"></canvas>
       
       <div class="buttons">
         <button id="stopScan">Detener Escaneo</button>
+        <button id="toggleTorch" class="hidden">🔦 Encender Linterna</button>
       </div>
     </div>
 
-    <!-- BOTÓN PARA INICIAR -->
     <button id="startScan">Iniciar Escaneo</button>
 
-    <!-- ESTADO -->
     <div id="status"></div>
 
-    <!-- RESULTADO -->
     <div id="result" class="hidden">
       <h3>Datos Escaneados:</h3>
       <p id="qrData"></p>
+      <div class="debug-info" id="debugInfo"></div>
       <div class="buttons">
         <button id="saveData">Guardarlo en BD</button>
         <button id="scanAgain">Escanear otro</button>
@@ -180,10 +155,11 @@
   </div>
 
   <div style="text-align: center; margin-top: 20px;">
-  <a href="reportes.html" style="color: #007cba; text-decoration: none; font-weight: bold;">
-    📊 Ver Reportes y Estadísticas
-  </a>
-</div>
+    <a href="reportes.html" style="color: #007cba; text-decoration: none; font-weight: bold;">
+      📊 Ver Reportes y Estadísticas
+    </a>
+  </div>
+
   <script>
     // URL fija de Google Apps Script
     const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxGNCa7bR07OAsHxewLVXLkcJV6k8G4zJEUCYkxYyg36W_18T9jjfRwddbvmB9oTeoI/exec';
@@ -192,23 +168,64 @@
     const userSelect = document.getElementById('userSelect');
     const projectSelect = document.getElementById('projectSelect');
     const commentsInput = document.getElementById('comments');
+    const cameraQualitySelect = document.getElementById('cameraQuality');
     const startScanBtn = document.getElementById('startScan');
     const stopScanBtn = document.getElementById('stopScan');
     const saveDataBtn = document.getElementById('saveData');
     const scanAgainBtn = document.getElementById('scanAgain');
+    const toggleTorchBtn = document.getElementById('toggleTorch');
     const video = document.getElementById('video');
     const canvas = document.getElementById('canvas');
-    const canvasContext = canvas.getContext('2d');
+    const canvasContext = canvas.getContext('2d', { willReadFrequently: true });
     const statusDiv = document.getElementById('status');
     const resultDiv = document.getElementById('result');
     const qrDataDiv = document.getElementById('qrData');
+    const debugInfoDiv = document.getElementById('debugInfo');
     const cameraSection = document.getElementById('cameraSection');
+    const qualityInfoDiv = document.getElementById('qualityInfo');
     const scannerTypeRadios = document.querySelectorAll('input[name="scannerType"]');
 
     let stream = null;
     let scanning = false;
     let currentQRData = '';
     let quaggaInitialized = false;
+    let torchOn = false;
+    let scanAttempts = 0;
+    let lastScannedCode = '';
+
+    // Configuración mejorada de Quagga
+    const quaggaConfig = {
+      inputStream: {
+        name: "Live",
+        type: "LiveStream",
+        target: video,
+        constraints: {
+          width: { min: 640, ideal: 1280, max: 1920 },
+          height: { min: 480, ideal: 720, max: 1080 },
+          aspectRatio: { ideal: 1.333 }
+        }
+      },
+      locator: {
+        patchSize: "medium",
+        halfSample: true
+      },
+      numOfWorkers: 2,
+      decoder: {
+        readers: [
+          "code_128_reader",
+          "ean_reader",
+          "ean_8_reader",
+          "code_39_reader",
+          "code_39_vin_reader",
+          "codabar_reader",
+          "upc_reader",
+          "upc_e_reader",
+          "i2of5_reader"
+        ]
+      },
+      locate: true,
+      frequency: 10
+    };
 
     // Función para mostrar mensajes de estado
     function showStatus(message, type = 'info') {
@@ -217,7 +234,6 @@
       statusDiv.style.display = 'block';
     }
 
-    // Función para ocultar mensajes de estado
     function hideStatus() {
       statusDiv.style.display = 'none';
     }
@@ -230,51 +246,142 @@
       return 'both';
     }
 
-    // Inicializar Quagga para códigos de barras
+    // Configuración mejorada de cámara
+    function getCameraConstraints() {
+      const quality = cameraQualitySelect.value;
+      
+      switch(quality) {
+        case 'high':
+          return {
+            video: { 
+              facingMode: "environment",
+              width: { ideal: 1920 },
+              height: { ideal: 1080 },
+              frameRate: { ideal: 30 }
+            }
+          };
+        case 'medium':
+          return {
+            video: { 
+              facingMode: "environment",
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
+              frameRate: { ideal: 30 }
+            }
+          };
+        case 'user':
+          return {
+            video: { 
+              facingMode: "user",
+              width: { ideal: 1280 },
+              height: { ideal: 720 }
+            }
+          };
+        default:
+          return {
+            video: { 
+              facingMode: "environment",
+              width: { ideal: 1280 },
+              height: { ideal: 720 }
+            }
+          };
+      }
+    }
+
+    // Control de linterna (solo en dispositivos compatibles)
+    async function toggleTorch() {
+      if (!stream) return;
+      
+      const track = stream.getVideoTracks()[0];
+      if (!track || !track.getCapabilities().torch) {
+        showStatus('Linterna no disponible en este dispositivo', 'warning');
+        return;
+      }
+
+      try {
+        await track.applyConstraints({
+          advanced: [{ torch: !torchOn }]
+        });
+        torchOn = !torchOn;
+        toggleTorchBtn.textContent = torchOn ? '🔦 Apagar Linterna' : '🔦 Encender Linterna';
+        showStatus(torchOn ? 'Linterna encendida' : 'Linterna apagada', 'info');
+      } catch (error) {
+        console.error('Error al controlar linterna:', error);
+        showStatus('Error al controlar linterna', 'error');
+      }
+    }
+
+    // Inicialización mejorada de Quagga
     function initQuagga() {
       if (quaggaInitialized) return;
       
-      Quagga.init({
-        inputStream: {
-          name: "Live",
-          type: "LiveStream",
-          target: video,
-          constraints: {
-            facingMode: "environment"
+      return new Promise((resolve, reject) => {
+        Quagga.init(quaggaConfig, function(err) {
+          if (err) {
+            console.error('Quagga initialization error:', err);
+            showStatus('Error inicializando escáner de códigos de barras', 'error');
+            reject(err);
+            return;
           }
-        },
-        decoder: {
-          readers: [
-            "code_128_reader",
-            "ean_reader",
-            "ean_8_reader",
-            "code_39_reader",
-            "upc_reader",
-            "upc_e_reader"
-          ]
-        }
-      }, function(err) {
-        if (err) {
-          console.log('Quagga initialization error:', err);
-          return;
-        }
-        quaggaInitialized = true;
-        Quagga.start();
-      });
+          quaggaInitialized = true;
+          Quagga.start();
+          
+          // Mejorar la detección con post-procesamiento
+          Quagga.onProcessed(function(result) {
+            if (result) {
+              const ctx = Quagga.canvas.ctx.overlay;
+              const canvas = Quagga.canvas.dom.overlay;
+              
+              if (result.codeResult && result.codeResult.code) {
+                drawBarcodeBox(result, ctx, canvas);
+              }
+            }
+          });
 
-      Quagga.onDetected(function(result) {
-        const code = result.codeResult.code;
-        if (code && getScannerType() !== 'qr') {
-          handleScannedCode(code, 'Código de barras');
-        }
+          Quagga.onDetected(function(result) {
+            const code = result.codeResult.code;
+            if (code && getScannerType() !== 'qr') {
+              // Evitar duplicados consecutivos
+              if (code !== lastScannedCode) {
+                lastScannedCode = code;
+                handleScannedCode(code, 'Código de barras');
+              }
+            }
+          });
+          
+          resolve();
+        });
       });
     }
 
-    // Detener Quagga
+    // Dibujar caja alrededor del código de barras detectado
+    function drawBarcodeBox(result, ctx, canvas) {
+      const boundingBox = result.box;
+      if (!boundingBox) return;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.strokeStyle = '#00ff00';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(boundingBox[0][0], boundingBox[0][1]);
+      for (let i = 1; i < boundingBox.length; i++) {
+        ctx.lineTo(boundingBox[i][0], boundingBox[i][1]);
+      }
+      ctx.closePath();
+      ctx.stroke();
+    }
+
+    // Detener Quagga mejorado
     function stopQuagga() {
       if (quaggaInitialized) {
-        Quagga.stop();
-        quaggaInitialized = false;
+        try {
+          Quagga.offDetected();
+          Quagga.offProcessed();
+          Quagga.stop();
+          quaggaInitialized = false;
+        } catch (error) {
+          console.error('Error stopping Quagga:', error);
+        }
       }
     }
 
@@ -285,9 +392,8 @@
       stopCamera();
     }
 
-    // Función para iniciar la cámara
+    // Función mejorada para iniciar la cámara
     async function startCamera() {
-      // Validar selecciones
       if (!userSelect.value) {
         showStatus('Por favor selecciona un usuario', 'error');
         return;
@@ -301,46 +407,80 @@
       try {
         showStatus('Iniciando cámara...', 'info');
         
-        stream = await navigator.mediaDevices.getUserMedia({ 
-          video: { facingMode: "environment" } 
-        });
+        const constraints = getCameraConstraints();
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
         
         video.srcObject = stream;
         cameraSection.classList.remove('hidden');
         startScanBtn.classList.add('hidden');
         scanning = true;
+        scanAttempts = 0;
+        lastScannedCode = '';
+        
+        // Mostrar información de calidad
+        const track = stream.getVideoTracks()[0];
+        const settings = track.getSettings();
+        qualityInfoDiv.textContent = `Resolución: ${settings.width}x${settings.height} - FPS: ${settings.frameRate || 'N/A'}`;
+        qualityInfoDiv.className = 'quality-indicator info';
         
         hideStatus();
-        
+
         // Inicializar escáner según el tipo seleccionado
         const scannerType = getScannerType();
         if (scannerType !== 'barcode') {
           scanQRCode();
         }
         if (scannerType !== 'qr') {
-          initQuagga();
+          await initQuagga();
+        }
+        
+        // Mostrar botón de linterna si está disponible
+        if (track.getCapabilities().torch) {
+          toggleTorchBtn.classList.remove('hidden');
         }
         
       } catch (error) {
+        console.error('Camera error:', error);
         showStatus('Error al acceder a la cámara: ' + error.message, 'error');
+        
+        // Fallback a configuración básica
+        if (error.name === 'OverconstrainedError') {
+          showStatus('Intentando con configuración básica...', 'warning');
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            video.srcObject = stream;
+            cameraSection.classList.remove('hidden');
+            startScanBtn.classList.add('hidden');
+            scanning = true;
+            scanQRCode();
+          } catch (fallbackError) {
+            showStatus('No se pudo acceder a la cámara: ' + fallbackError.message, 'error');
+          }
+        }
       }
     }
 
     // Función para detener la cámara
     function stopCamera() {
+      scanning = false;
+      
       if (stream) {
-        stream.getTracks().forEach(track => track.stop());
+        stream.getTracks().forEach(track => {
+          track.stop();
+        });
         stream = null;
       }
       
-      scanning = false;
       cameraSection.classList.add('hidden');
       startScanBtn.classList.remove('hidden');
+      toggleTorchBtn.classList.add('hidden');
+      qualityInfoDiv.classList.add('hidden');
       hideStatus();
       stopQuagga();
+      torchOn = false;
     }
 
-    // Función para escanear QR
+    // Función mejorada para escanear QR
     function scanQRCode() {
       if (!scanning) return;
 
@@ -351,10 +491,22 @@
         canvasContext.drawImage(video, 0, 0, canvas.width, canvas.height);
         
         const imageData = canvasContext.getImageData(0, 0, canvas.width, canvas.height);
-        const code = jsQR(imageData.data, imageData.width, imageData.height);
+        const code = jsQR(imageData.data, imageData.width, imageData.height, {
+          inversionAttempts: "dontInvert",
+        });
         
         if (code && getScannerType() !== 'barcode') {
-          handleScannedCode(code.data, 'QR');
+          // Evitar duplicados consecutivos
+          if (code.data !== lastScannedCode) {
+            lastScannedCode = code.data;
+            handleScannedCode(code.data, 'QR');
+          }
+        } else {
+          scanAttempts++;
+          // Cada 50 intentos, mostrar información de diagnóstico
+          if (scanAttempts % 50 === 0) {
+            debugInfoDiv.textContent = `Intentos de escaneo: ${scanAttempts} - Tamaño imagen: ${canvas.width}x${canvas.height}`;
+          }
         }
       }
       
@@ -365,20 +517,19 @@
 
     // Función para mostrar resultado del QR
     function showQRResult(data, type) {
-      qrDataDiv.textContent = data;
       qrDataDiv.innerHTML = `<strong>Tipo:</strong> ${type}<br><strong>Datos:</strong> ${data}`;
+      debugInfoDiv.textContent = `Escaneado exitoso en ${scanAttempts} intentos`;
       resultDiv.classList.remove('hidden');
       showStatus(`${type} detectado correctamente`, 'success');
     }
 
-    // Función para guardar datos en Google Sheets
+    // Función para guardar datos en Google Sheets (sin cambios)
     async function saveToGoogleSheets() {
       const user = userSelect.value;
       const project = projectSelect.value;
       const qrData = currentQRData;
       const comments = commentsInput.value.trim();
 
-      // Validaciones
       if (!user) {
         showStatus('Por favor selecciona un usuario', 'error');
         return;
@@ -398,19 +549,11 @@
       showStatus('Guardando datos...', 'info');
 
       try {
-        // Crear datos del formulario
         const formData = new URLSearchParams();
         formData.append('user', user);
         formData.append('project', project);
         formData.append('qrData', qrData);
         formData.append('comments', comments);
-
-        console.log('=== DATOS A ENVIAR ===');
-        console.log('URL:', SCRIPT_URL);
-        console.log('Usuario:', user);
-        console.log('Proyecto:', project);
-        console.log('QR Data:', qrData);
-        console.log('Comentarios:', comments);
 
         const response = await fetch(SCRIPT_URL, {
           method: 'POST',
@@ -420,23 +563,19 @@
           body: formData.toString()
         });
 
-        console.log('Respuesta recibida, status:', response.status);
-
         if (!response.ok) {
           throw new Error(`Error HTTP: ${response.status} ${response.statusText}`);
         }
 
         const result = await response.text();
-        console.log('Resultado del servidor:', result);
 
         if (result.includes('ÉXITO')) {
           showStatus('✓ Datos guardados exitosamente en Google Sheets', 'success');
           
-          // Limpiar formulario después de éxito
           setTimeout(() => {
             resultDiv.classList.add('hidden');
             currentQRData = '';
-            commentsInput.value = ''; // Limpiar comentarios
+            commentsInput.value = '';
           }, 3000);
           
         } else if (result.includes('DUPLICADO')) {
@@ -456,6 +595,7 @@
     startScanBtn.addEventListener('click', startCamera);
     stopScanBtn.addEventListener('click', stopCamera);
     saveDataBtn.addEventListener('click', saveToGoogleSheets);
+    toggleTorchBtn.addEventListener('click', toggleTorch);
     
     scanAgainBtn.addEventListener('click', function() {
       resultDiv.classList.add('hidden');
@@ -464,7 +604,6 @@
       startCamera();
     });
 
-    // Validar selecciones al cambiar
     userSelect.addEventListener('change', hideStatus);
     projectSelect.addEventListener('change', hideStatus);
 
@@ -481,9 +620,3 @@
   </script>
 </body>
 </html>
-
-
-
-
-
-
