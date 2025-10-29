@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Scanner Especializado</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --secondary: #1d4ed8;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --dark: #1f2937;
+            --light: #f9fafb;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .subtitle {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            margin-bottom: 20px;
+        }
+        
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 16px;
+            padding: 25px;
+            margin-bottom: 25px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            color: var(--dark);
+            backdrop-filter: blur(10px);
+        }
+        
+        .card-title {
+            color: var(--primary);
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .scanner-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        @media (max-width: 768px) {
+            .scanner-container {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .camera-section, .diagnostic-section {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .video-container {
+            position: relative;
+            width: 100%;
+            border-radius: 12px;
+            overflow: hidden;
+            background: #000;
+            margin-bottom: 15px;
+        }
+        
+        #video {
+            width: 100%;
+            display: block;
+        }
+        
+        .scan-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        
+        .scan-frame {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 250px;
+            height: 250px;
+            border: 3px solid var(--success);
+            border-radius: 12px;
+        }
+        
+        .scan-line {
+            position: absolute;
+            width: 100%;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, var(--success), transparent);
+            top: 0;
+            animation: scanLine 2s ease-in-out infinite;
+        }
+        
+        @keyframes scanLine {
+            0% { top: 10%; opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { top: 90%; opacity: 0; }
+        }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        button {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            flex: 1;
+        }
+        
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: var(--secondary);
+        }
+        
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #0da271;
+        }
+        
+        .btn-warning {
+            background: var(--warning);
+            color: white;
+        }
+        
+        .btn-warning:hover {
+            background: #e58a08;
+        }
+        
+        .btn-error {
+            background: var(--error);
+            color: white;
+        }
+        
+        .btn-error:hover {
+            background: #dc2626;
+        }
+        
+        button:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+        
+        .status {
+            padding: 12px;
+            border-radius: 8px;
+            margin: 15px 0;
+            text-align: center;
+            font-weight: 600;
+        }
+        
+        .status.info {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+        
+        .status.success {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        
+        .status.warning {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        
+        .status.error {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        
+        .strategies {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .strategy {
+            padding: 15px;
+            border-radius: 8px;
+            background: #f3f4f6;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+        
+        .strategy:hover {
+            background: #e5e7eb;
+        }
+        
+        .strategy.active {
+            background: var(--primary);
+            color: white;
+        }
+        
+        .strategy-title {
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        
+        .strategy-desc {
+            font-size: 0.85rem;
+            opacity: 0.8;
+        }
+        
+        .results {
+            margin-top: 20px;
+        }
+        
+        .result-item {
+            padding: 15px;
+            border-radius: 8px;
+            background: #f8fafc;
+            margin-bottom: 15px;
+            border-left: 4px solid var(--primary);
+        }
+        
+        .result-type {
+            font-weight: 600;
+            color: var(--primary);
+            margin-bottom: 8px;
+        }
+        
+        .result-data {
+            word-break: break-all;
+            padding: 10px;
+            background: white;
+            border-radius: 5px;
+            margin-top: 10px;
+            font-family: monospace;
+        }
+        
+        .debug-info {
+            background: #1f2937;
+            color: #d1d5db;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            font-family: monospace;
+            font-size: 0.9rem;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .progress-container {
+            margin: 15px 0;
+        }
+        
+        .progress-bar {
+            height: 8px;
+            background: #e5e7eb;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: var(--success);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        
+        .diagnostic-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 15px 0;
+        }
+        
+        .diagnostic-item {
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            background: #f3f4f6;
+        }
+        
+        .diagnostic-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin: 5px 0;
+        }
+        
+        .diagnostic-label {
+            font-size: 0.85rem;
+            color: #6b7280;
+        }
+        
+        .quality-good {
+            color: var(--success);
+        }
+        
+        .quality-medium {
+            color: var(--warning);
+        }
+        
+        .quality-poor {
+            color: var(--error);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>QR Scanner Especializado</h1>
+            <p class="subtitle">Solución avanzada para códigos QR difíciles de leer</p>
+        </header>
+        
+        <div class="card">
+            <h2 class="card-title">
+                <i class="fas fa-camera"></i> Escáner de Cámara
+            </h2>
+            
+            <div class="scanner-container">
+                <div class="camera-section">
+                    <div class="video-container">
+                        <video id="video" autoplay playsinline></video>
+                        <div class="scan-overlay">
+                            <div class="scan-frame">
+                                <div class="scan-line"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="cameraStatus" class="status info">
+                        Presiona "Iniciar Cámara" para comenzar
+                    </div>
+                    
+                    <div class="controls">
+                        <button id="startCamera" class="btn-primary">
+                            <i class="fas fa-play"></i> Iniciar Cámara
+                        </button>
+                        <button id="stopCamera" class="btn-error hidden">
+                            <i class="fas fa-stop"></i> Detener
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="diagnostic-section">
+                    <h3 class="card-title">
+                        <i class="fas fa-search"></i> Estrategias de Escaneo
+                    </h3>
+                    
+                    <div class="strategies">
+                        <div class="strategy active" data-strategy="standard">
+                            <div class="strategy-title">Estándar</div>
+                            <div class="strategy-desc">Balance velocidad/precisión</div>
+                        </div>
+                        <div class="strategy" data-strategy="sensitive">
+                            <div class="strategy-title">Alta Sensibilidad</div>
+                            <div class="strategy-desc">Para QR difíciles</div>
+                        </div>
+                        <div class="strategy" data-strategy="aggressive">
+                            <div class="strategy-title">Agresivo</div>
+                            <div class="strategy-desc">Máxima detección</div>
+                        </div>
+                        <div class="strategy" data-strategy="inverted">
+                            <div class="strategy-title">Invertido</div>
+                            <div class="strategy-desc">QR con colores invertidos</div>
+                        </div>
+                    </div>
+                    
+                    <div class="progress-container">
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="scanProgress"></div>
+                        </div>
+                        <div style="text-align: center; font-size: 0.9rem; margin-top: 5px;">
+                            <span id="progressText">0%</span> - <span id="scanCount">0</span> escaneos
+                        </div>
+                    </div>
+                    
+                    <div class="diagnostic-grid">
+                        <div class="diagnostic-item">
+                            <div class="diagnostic-label">Calidad</div>
+                            <div class="diagnostic-value quality-medium" id="qualityScore">--</div>
+                        </div>
+                        <div class="diagnostic-item">
+                            <div class="diagnostic-label">Luminancia</div>
+                            <div class="diagnostic-value" id="luminanceValue">--</div>
+                        </div>
+                        <div class="diagnostic-item">
+                            <div class="diagnostic-label">Contraste</div>
+                            <div class="diagnostic-value" id="contrastValue">--</div>
+                        </div>
+                        <div class="diagnostic-item">
+                            <div class="diagnostic-label">Enfoque</div>
+                            <div class="diagnostic-value" id="focusValue">--</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2 class="card-title">
+                <i class="fas fa-sliders-h"></i> Configuración Avanzada
+            </h2>
+            
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px;">
+                <div>
+                    <label style="display: block; margin-bottom: 8px; font-weight: 600;">Pre-procesamiento:</label>
+                    <select id="preProcess" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #d1d5db;">
+                        <option value="none">Ninguno</option>
+                        <option value="contrast">Mejorar contraste</option>
+                        <option value="sharpen">Enfocar imagen</option>
+                        <option value="grayscale">Escala de grises</option>
+                        <option value="invert">Invertir colores</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label style="display: block; margin-bottom: 8px; font-weight: 600;">Resolución:</label>
+                    <select id="resolution" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #d1d5db;">
+                        <option value="high">Alta (lento)</option>
+                        <option value="medium" selected>Media</option>
+                        <option value="low">Baja (rápido)</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label style="display: block; margin-bottom: 8px; font-weight: 600;">Brillo:</label>
+                    <input type="range" id="brightness" min="50" max="200" value="100" style="width: 100%;">
+                    <div style="text-align: center; font-size: 0.9rem;" id="brightnessValue">100%</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2 class="card-title">
+                <i class="fas fa-list"></i> Resultados
+            </h2>
+            
+            <div id="resultsContainer">
+                <div class="result-item">
+                    <div class="result-type">Esperando escaneo...</div>
+                    <div class="result-data">Los resultados aparecerán aquí</div>
+                </div>
+            </div>
+            
+            <div class="debug-info" id="debugInfo">
+                Iniciando diagnóstico...
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+    
+    <script>
+        // Elementos DOM
+        const video = document.getElementById('video');
+        const startCameraBtn = document.getElementById('startCamera');
+        const stopCameraBtn = document.getElementById('stopCamera');
+        const cameraStatus = document.getElementById('cameraStatus');
+        const resultsContainer = document.getElementById('resultsContainer');
+        const debugInfo = document.getElementById('debugInfo');
+        const scanProgress = document.getElementById('scanProgress');
+        const progressText = document.getElementById('progressText');
+        const scanCount = document.getElementById('scanCount');
+        const qualityScore = document.getElementById('qualityScore');
+        const luminanceValue = document.getElementById('luminanceValue');
+        const contrastValue = document.getElementById('contrastValue');
+        const focusValue = document.getElementById('focusValue');
+        const brightnessSlider = document.getElementById('brightness');
+        const brightnessValue = document.getElementById('brightnessValue');
+        
+        // Estrategias
+        const strategyElements = document.querySelectorAll('.strategy');
+        
+        // Variables de estado
+        let stream = null;
+        let scanning = false;
+        let scanAttempts = 0;
+        let currentStrategy = 'standard';
+        let canvas = null;
+        let canvasContext = null;
+        
+        // Configuraciones por estrategia
+        const strategyConfigs = {
+            standard: {
+                inversionAttempts: "attemptBoth",
+                minConfidence: 0.1,
+                maxScansPerFrame: 10,
+                scanInterval: 100
+            },
+            sensitive: {
+                inversionAttempts: "attemptBoth",
+                minConfidence: 0.05,
+                maxScansPerFrame: 20,
+                scanInterval: 150
+            },
+            aggressive: {
+                inversionAttempts: "attemptBoth",
+                minConfidence: 0.02,
+                maxScansPerFrame: 30,
+                scanInterval: 200
+            },
+            inverted: {
+                inversionAttempts: "invert",
+                minConfidence: 0.1,
+                maxScansPerFrame: 15,
+                scanInterval: 100
+            }
+        };
+        
+        // Inicialización
+        function init() {
+            canvas = document.createElement('canvas');
+            canvasContext = canvas.getContext('2d', { willReadFrequently: true });
+            
+            // Configurar estrategias
+            strategyElements.forEach(el => {
+                el.addEventListener('click', () => {
+                    strategyElements.forEach(e => e.classList.remove('active'));
+                    el.classList.add('active');
+                    currentStrategy = el.dataset.strategy;
+                    updateDebugInfo(`Estrategia cambiada a: ${el.querySelector('.strategy-title').textContent}`);
+                });
+            });
+            
+            // Configurar brillo
+            brightnessSlider.addEventListener('input', () => {
+                brightnessValue.textContent = `${brightnessSlider.value}%`;
+            });
+        }
+        
+        // Iniciar cámara
+        async function startCamera() {
+            try {
+                updateStatus('Iniciando cámara...', 'info');
+                
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: "environment",
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    }
+                });
+                
+                video.srcObject = stream;
+                startCameraBtn.classList.add('hidden');
+                stopCameraBtn.classList.remove('hidden');
+                
+                await new Promise(resolve => {
+                    video.onloadedmetadata = () => {
+                        video.play().then(resolve);
+                    };
+                });
+                
+                updateStatus('Cámara activa - Escaneando...', 'success');
+                scanning = true;
+                scanAttempts = 0;
+                scanQRCode();
+                
+            } catch (error) {
+                console.error('Error al acceder a la cámara:', error);
+                updateStatus(`Error: ${error.message}`, 'error');
+            }
+        }
+        
+        // Detener cámara
+        function stopCamera() {
+            scanning = false;
+            
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+            }
+            
+            startCameraBtn.classList.remove('hidden');
+            stopCameraBtn.classList.add('hidden');
+            updateStatus('Cámara detenida', 'info');
+        }
+        
+        // Actualizar estado
+        function updateStatus(message, type) {
+            cameraStatus.textContent = message;
+            cameraStatus.className = `status ${type}`;
+        }
+        
+        // Actualizar información de depuración
+        function updateDebugInfo(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            debugInfo.innerHTML = `[${timestamp}] ${message}<br>${debugInfo.innerHTML}`;
+        }
+        
+        // Procesamiento de imagen
+        function processImage(imageData, method) {
+            const data = imageData.data;
+            const width = imageData.width;
+            const height = imageData.height;
+            
+            switch(method) {
+                case 'contrast':
+                    // Mejorar contraste
+                    const contrast = 1.5;
+                    const factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
+                    for (let i = 0; i < data.length; i += 4) {
+                        data[i] = factor * (data[i] - 128) + 128;
+                        data[i + 1] = factor * (data[i + 1] - 128) + 128;
+                        data[i + 2] = factor * (data[i + 2] - 128) + 128;
+                    }
+                    break;
+                    
+                case 'sharpen':
+                    // Enfocar imagen
+                    const tempData = new Uint8ClampedArray(data);
+                    for (let y = 1; y < height - 1; y++) {
+                        for (let x = 1; x < width - 1; x++) {
+                            const idx = (y * width + x) * 4;
+                            for (let c = 0; c < 3; c++) {
+                                const val = tempData[idx + c] * 9 -
+                                           tempData[idx - 4 + c] - tempData[idx + 4 + c] -
+                                           tempData[idx - width * 4 + c] - tempData[idx + width * 4 + c];
+                                data[idx + c] = Math.max(0, Math.min(255, val));
+                            }
+                        }
+                    }
+                    break;
+                    
+                case 'grayscale':
+                    // Convertir a escala de grises
+                    for (let i = 0; i < data.length; i += 4) {
+                        const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+                        data[i] = data[i + 1] = data[i + 2] = gray;
+                    }
+                    break;
+                    
+                case 'invert':
+                    // Invertir colores
+                    for (let i = 0; i < data.length; i += 4) {
+                        data[i] = 255 - data[i];
+                        data[i + 1] = 255 - data[i + 1];
+                        data[i + 2] = 255 - data[i + 2];
+                    }
+                    break;
+            }
+            
+            return imageData;
+        }
+        
+        // Análisis de calidad de imagen
+        function analyzeImageQuality(imageData) {
+            const data = imageData.data;
+            let totalLuminance = 0;
+            let minLuminance = 255;
+            let maxLuminance = 0;
+            let edgeCount = 0;
+            
+            // Calcular luminancia y contraste
+            for (let i = 0; i < data.length; i += 4) {
+                const luminance = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+                totalLuminance += luminance;
+                minLuminance = Math.min(minLuminance, luminance);
+                maxLuminance = Math.max(maxLuminance, luminance);
+            }
+            
+            const avgLuminance = totalLuminance / (data.length / 4);
+            const contrast = maxLuminance - minLuminance;
+            
+            // Detectar bordes para medir enfoque
+            for (let i = 4; i < data.length - 4; i += 4) {
+                const diff = Math.abs(data[i] - data[i - 4]) + 
+                            Math.abs(data[i + 1] - data[i - 3]) + 
+                            Math.abs(data[i + 2] - data[i - 2]);
+                if (diff > 50) edgeCount++;
+            }
+            
+            // Calcular puntuación de calidad (0-100)
+            const luminanceScore = Math.min(100, (avgLuminance / 255) * 100);
+            const contrastScore = Math.min(100, (contrast / 255) * 100);
+            const edgeScore = Math.min(100, (edgeCount / (data.length / 400)) * 2);
+            
+            const qualityScore = (luminanceScore * 0.4 + contrastScore * 0.3 + edgeScore * 0.3);
+            
+            return {
+                score: Math.round(qualityScore),
+                luminance: Math.round(avgLuminance),
+                contrast: Math.round(contrast),
+                edges: edgeCount,
+                diagnosis: qualityScore > 70 ? "Excelente" : 
+                          qualityScore > 50 ? "Buena" : 
+                          qualityScore > 30 ? "Regular" : "Mala"
+            };
+        }
+        
+        // Escaneo de QR
+        function scanQRCode() {
+            if (!scanning) return;
+            
+            if (video.readyState === video.HAVE_ENOUGH_DATA && video.videoWidth > 0) {
+                // Configurar canvas según resolución
+                let width, height;
+                const resolution = document.getElementById('resolution').value;
+                
+                switch(resolution) {
+                    case 'high':
+                        width = video.videoWidth;
+                        height = video.videoHeight;
+                        break;
+                    case 'low':
+                        width = Math.floor(video.videoWidth * 0.5);
+                        height = Math.floor(video.videoHeight * 0.5);
+                        break;
+                    default:
+                        width = Math.floor(video.videoWidth * 0.7);
+                        height = Math.floor(video.videoHeight * 0.7);
+                }
+                
+                canvas.width = width;
+                canvas.height = height;
+                canvasContext.drawImage(video, 0, 0, width, height);
+                
+                let imageData = canvasContext.getImageData(0, 0, width, height);
+                
+                // Aplicar pre-procesamiento
+                const preProcessMethod = document.getElementById('preProcess').value;
+                if (preProcessMethod !== 'none') {
+                    imageData = processImage(imageData, preProcessMethod);
+                }
+                
+                // Aplicar brillo
+                const brightness = parseInt(brightnessSlider.value) / 100;
+                if (brightness !== 1) {
+                    const data = imageData.data;
+                    for (let i = 0; i < data.length; i += 4) {
+                        data[i] = Math.min(255, data[i] * brightness);
+                        data[i + 1] = Math.min(255, data[i + 1] * brightness);
+                        data[i + 2] = Math.min(255, data[i + 2] * brightness);
+                    }
+                }
+                
+                // Análisis de calidad
+                const quality = analyzeImageQuality(imageData);
+                updateDiagnostics(quality);
+                
+                // Configuración actual
+                const config = strategyConfigs[currentStrategy];
+                
+                // Intentar escanear QR
+                try {
+                    const code = jsQR(imageData.data, width, height, config);
+                    
+                    if (code) {
+                        handleScanResult('success', 'QR detectado', code.data, code.confidence);
+                        updateDebugInfo(`QR detectado con confianza: ${(code.confidence * 100).toFixed(1)}%`);
+                    }
+                    
+                    scanAttempts++;
+                    updateProgress();
+                    
+                } catch (error) {
+                    console.warn('Error en escaneo:', error);
+                    updateDebugInfo(`Error en escaneo: ${error.message}`);
+                }
+            }
+            
+            // Programar siguiente escaneo
+            if (scanning) {
+                const interval = strategyConfigs[currentStrategy].scanInterval;
+                setTimeout(scanQRCode, interval);
+            }
+        }
+        
+        // Actualizar diagnóstico
+        function updateDiagnostics(quality) {
+            qualityScore.textContent = quality.score;
+            luminanceValue.textContent = quality.luminance;
+            contrastValue.textContent = quality.contrast;
+            focusValue.textContent = quality.edges;
+            
+            // Actualizar clases de calidad
+            qualityScore.className = 'diagnostic-value ';
+            if (quality.score >= 70) {
+                qualityScore.classList.add('quality-good');
+            } else if (quality.score >= 50) {
+                qualityScore.classList.add('quality-medium');
+            } else {
+                qualityScore.classList.add('quality-poor');
+            }
+        }
+        
+        // Actualizar progreso
+        function updateProgress() {
+            const progress = Math.min(100, scanAttempts / 2);
+            scanProgress.style.width = `${progress}%`;
+            progressText.textContent = `${progress}%`;
+            scanCount.textContent = scanAttempts;
+        }
+        
+        // Manejar resultado del escaneo
+        function handleScanResult(type, message, data, confidence) {
+            let resultHTML = '';
+            
+            if (type === 'success') {
+                resultHTML = `
+                    <div class="result-item">
+                        <div class="result-type">✅ ${message}</div>
+                        <div class="result-data">${data}</div>
+                        <div style="margin-top: 10px; font-size: 0.9rem; color: #6b7280;">
+                            Confianza: ${(confidence * 100).toFixed(1)}% | 
+                            Estrategia: ${currentStrategy} | 
+                            Escaneos: ${scanAttempts}
+                        </div>
+                    </div>
+                `;
+            } else {
+                resultHTML = `
+                    <div class="result-item">
+                        <div class="result-type">❌ ${message}</div>
+                        <div class="result-data">${data || 'No se detectó ningún código'}</div>
+                    </div>
+                `;
+            }
+            
+            // Reemplazar contenido
+            resultsContainer.innerHTML = resultHTML;
+            
+            // Si es un éxito, detener el escaneo
+            if (type === 'success') {
+                stopCamera();
+            }
+        }
+        
+        // Event Listeners
+        startCameraBtn.addEventListener('click', startCamera);
+        stopCameraBtn.addEventListener('click', stopCamera);
+        
+        // Inicializar
+        init();
+        updateDebugInfo('Sistema inicializado. Selecciona una estrategia y haz clic en "Iniciar Cámara"');
+    </script>
+</body>
+</html>
