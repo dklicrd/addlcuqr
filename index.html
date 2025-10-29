@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Escanea QR y Códigos de Barras - Corregido</title>
+  <title>Escáner QR/Barras - Con Diagnóstico</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -129,7 +129,7 @@
       color: #333;
     }
     
-    /* Nuevos estilos corregidos */
+    /* Área de escaneo */
     .scanning-area {
       position: relative;
       width: 100%;
@@ -193,6 +193,30 @@
     .buttons button {
       flex: 1;
     }
+    .diagnostic-panel {
+      background: #f8f9fa;
+      border: 1px solid #dee2e6;
+      border-radius: 5px;
+      padding: 15px;
+      margin: 15px 0;
+    }
+    .diagnostic-item {
+      margin: 8px 0;
+      padding: 5px;
+      border-radius: 3px;
+    }
+    .diagnostic-ok {
+      background: #d4edda;
+      color: #155724;
+    }
+    .diagnostic-warning {
+      background: #fff3cd;
+      color: #856404;
+    }
+    .diagnostic-error {
+      background: #f8d7da;
+      color: #721c24;
+    }
     
     /* Animación de línea de escaneo */
     @keyframes scanLine {
@@ -224,7 +248,7 @@
 </head>
 <body>
   <div class="container">
-    <h1>Escanea Códigos QR/Barras del LCU</h1>
+    <h1>Escáner QR/Barras - Con Diagnóstico</h1>
 
     <!-- SELECT DE USUARIO -->
     <div class="form-group">
@@ -259,14 +283,14 @@
       <textarea id="comments" placeholder="Escribe aquí cualquier comentario adicional..."></textarea>
     </div>
 
-    <!-- Selector de calidad de cámara -->
+    <!-- CONFIGURACIÓN AVANZADA -->
     <div class="form-group">
-      <label for="cameraQuality">Calidad de cámara:</label>
-      <select id="cameraQuality">
-        <option value="environment">Automática (Recomendada)</option>
-        <option value="user">Frontal</option>
-        <option value="high">Alta resolución</option>
-        <option value="medium">Resolución media</option>
+      <label for="qrConfig">Configuración QR:</label>
+      <select id="qrConfig">
+        <option value="auto">Automático</option>
+        <option value="high-sensitivity">Alta sensibilidad (QR difíciles)</option>
+        <option value="fast">Escaneo rápido</option>
+        <option value="detailed">Análisis detallado</option>
       </select>
     </div>
 
@@ -276,6 +300,12 @@
       <label><input type="radio" name="scannerType" value="both" checked> Ambos (QR + Códigos de Barras)</label>
       <label><input type="radio" name="scannerType" value="qr"> Solo QR</label>
       <label><input type="radio" name="scannerType" value="barcode"> Solo Códigos de Barras</label>
+    </div>
+
+    <!-- PANEL DE DIAGNÓSTICO -->
+    <div id="diagnosticPanel" class="diagnostic-panel hidden">
+      <h3>🔍 Diagnóstico del Escáner</h3>
+      <div id="diagnosticResults"></div>
     </div>
 
     <!-- CÁMARA Y CANVAS -->
@@ -290,11 +320,14 @@
       
       <div id="qualityInfo" class="quality-indicator hidden"></div>
       
+      <!-- Canvas para visualización de diagnóstico -->
+      <canvas id="debugCanvas" style="display: none;"></canvas>
       <canvas id="canvas" class="hidden"></canvas>
       
       <div class="buttons">
         <button id="stopScan">Detener Escaneo</button>
         <button id="toggleTorch" class="hidden">🔦 Encender Linterna</button>
+        <button id="runDiagnostic">🩺 Ejecutar Diagnóstico</button>
       </div>
     </div>
 
@@ -313,35 +346,33 @@
     </div>
   </div>
 
-  <div style="text-align: center; margin-top: 20px;">
-    <a href="reportes.html" style="color: #007cba; text-decoration: none; font-weight: bold;">
-      📊 Ver Reportes y Estadísticas
-    </a>
-  </div>
-
   <script>
-    // URL fija de Google Apps Script
     const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxGNCa7bR07OAsHxewLVXLkcJV6k8G4zJEUCYkxYyg36W_18T9jjfRwddbvmB9oTeoI/exec';
 
     // Elementos DOM
     const userSelect = document.getElementById('userSelect');
     const projectSelect = document.getElementById('projectSelect');
     const commentsInput = document.getElementById('comments');
-    const cameraQualitySelect = document.getElementById('cameraQuality');
+    const qrConfigSelect = document.getElementById('qrConfig');
     const startScanBtn = document.getElementById('startScan');
     const stopScanBtn = document.getElementById('stopScan');
     const saveDataBtn = document.getElementById('saveData');
     const scanAgainBtn = document.getElementById('scanAgain');
     const toggleTorchBtn = document.getElementById('toggleTorch');
+    const runDiagnosticBtn = document.getElementById('runDiagnostic');
     const video = document.getElementById('video');
     const canvas = document.getElementById('canvas');
+    const debugCanvas = document.getElementById('debugCanvas');
     const canvasContext = canvas.getContext('2d', { willReadFrequently: true });
+    const debugContext = debugCanvas.getContext('2d', { willReadFrequently: true });
     const statusDiv = document.getElementById('status');
     const resultDiv = document.getElementById('result');
     const qrDataDiv = document.getElementById('qrData');
     const debugInfoDiv = document.getElementById('debugInfo');
     const cameraSection = document.getElementById('cameraSection');
     const qualityInfoDiv = document.getElementById('qualityInfo');
+    const diagnosticPanel = document.getElementById('diagnosticPanel');
+    const diagnosticResults = document.getElementById('diagnosticResults');
     const scannerTypeRadios = document.querySelectorAll('input[name="scannerType"]');
 
     let stream = null;
@@ -352,39 +383,16 @@
     let scanAttempts = 0;
     let lastScannedCode = '';
     let qrScanningActive = false;
+    let diagnosticMode = false;
 
-    // Configuración simplificada de Quagga
-    const quaggaConfig = {
-      inputStream: {
-        name: "Live",
-        type: "LiveStream",
-        target: video,
-        constraints: {
-          width: { min: 640, ideal: 1280, max: 1920 },
-          height: { min: 480, ideal: 720, max: 1080 },
-          aspectRatio: { ideal: 1.333 },
-          facingMode: "environment"
-        }
-      },
-      locator: {
-        patchSize: "medium",
-        halfSample: true
-      },
-      numOfWorkers: 2,
-      decoder: {
-        readers: [
-          "code_128_reader",
-          "ean_reader",
-          "ean_8_reader",
-          "code_39_reader",
-          "upc_reader",
-          "upc_e_reader"
-        ]
-      },
-      locate: true
+    // Configuraciones para diferentes tipos de QR
+    const qrConfigs = {
+      'auto': { inversionAttempts: "attemptBoth", minConfidence: 0.1 },
+      'high-sensitivity': { inversionAttempts: "attemptBoth", minConfidence: 0.05, grayscaleWeights: { red: 0.2126, green: 0.7152, blue: 0.0722, useInteger: false } },
+      'fast': { inversionAttempts: "dontInvert", minConfidence: 0.3 },
+      'detailed': { inversionAttempts: "attemptBoth", minConfidence: 0.1, maxScansPerFrame: 10 }
     };
 
-    // Función para mostrar mensajes de estado
     function showStatus(message, type = 'info') {
       statusDiv.textContent = message;
       statusDiv.className = type;
@@ -395,7 +403,6 @@
       statusDiv.style.display = 'none';
     }
 
-    // Obtener tipo de escáner seleccionado
     function getScannerType() {
       for (const radio of scannerTypeRadios) {
         if (radio.checked) return radio.value;
@@ -403,49 +410,17 @@
       return 'both';
     }
 
-    // Configuración mejorada de cámara
     function getCameraConstraints() {
-      const quality = cameraQualitySelect.value;
-      let constraints = {
+      return {
         video: { 
-          facingMode: "environment"
+          facingMode: "environment",
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
         },
         audio: false
       };
-
-      switch(quality) {
-        case 'high':
-          constraints.video = { 
-            facingMode: "environment",
-            width: { ideal: 1920 },
-            height: { ideal: 1080 }
-          };
-          break;
-        case 'medium':
-          constraints.video = { 
-            facingMode: "environment",
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
-          };
-          break;
-        case 'user':
-          constraints.video = { 
-            facingMode: "user",
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
-          };
-          break;
-        default:
-          constraints.video = { 
-            facingMode: "environment",
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
-          };
-      }
-      return constraints;
     }
 
-    // Control de linterna
     async function toggleTorch() {
       if (!stream) return;
       
@@ -467,12 +442,26 @@
       }
     }
 
-    // Inicialización de Quagga
     function initQuagga() {
       return new Promise((resolve, reject) => {
-        Quagga.init(quaggaConfig, function(err) {
+        const config = {
+          inputStream: {
+            name: "Live",
+            type: "LiveStream",
+            target: video,
+            constraints: {
+              width: { min: 640 },
+              height: { min: 480 },
+              facingMode: "environment"
+            }
+          },
+          decoder: {
+            readers: ["code_128_reader", "ean_reader", "ean_8_reader", "code_39_reader"]
+          }
+        };
+
+        Quagga.init(config, function(err) {
           if (err) {
-            console.log('Quagga initialization error:', err);
             reject(err);
             return;
           }
@@ -490,7 +479,6 @@
       });
     }
 
-    // Detener Quagga
     function stopQuagga() {
       if (quaggaInitialized) {
         try {
@@ -502,11 +490,8 @@
       }
     }
 
-    // Función para manejar código escaneado
     function handleScannedCode(code, type) {
       if (!scanning) return;
-      
-      // Evitar duplicados consecutivos
       if (code === lastScannedCode) return;
       
       lastScannedCode = code;
@@ -515,15 +500,77 @@
       stopCamera();
     }
 
-    // Función mejorada para iniciar la cámara
-    async function startCamera() {
-      if (!userSelect.value) {
-        showStatus('Por favor selecciona un usuario', 'error');
+    // FUNCIÓN DE DIAGNÓSTICO MEJORADA
+    function runScannerDiagnostic() {
+      if (!stream || !video.videoWidth) {
+        diagnosticResults.innerHTML = '<div class="diagnostic-error">❌ Cámara no inicializada</div>';
         return;
       }
+
+      let diagnostics = '';
+      const track = stream.getVideoTracks()[0];
+      const settings = track.getSettings();
       
-      if (!projectSelect.value) {
-        showStatus('Por favor selecciona un proyecto', 'error');
+      // Diagnóstico de cámara
+      diagnostics += `<div class="diagnostic-item ${settings.width >= 640 ? 'diagnostic-ok' : 'diagnostic-warning'}">
+        📷 Resolución: ${settings.width}x${settings.height} ${settings.width >= 640 ? '✅' : '⚠️ Puede ser baja'}
+      </div>`;
+      
+      diagnostics += `<div class="diagnostic-item ${settings.frameRate >= 15 ? 'diagnostic-ok' : 'diagnostic-warning'}">
+        🎞️ Frame rate: ${settings.frameRate || 'N/A'} ${settings.frameRate >= 15 ? '✅' : '⚠️ Puede ser bajo'}
+      </div>`;
+      
+      // Diagnóstico de enfoque
+      diagnostics += `<div class="diagnostic-item diagnostic-ok">
+        🔍 Enfoque: ${track.getCapabilities().focusMode ? 'Disponible' : 'Automático'}
+      </div>`;
+      
+      // Diagnóstico de linterna
+      diagnostics += `<div class="diagnostic-item ${track.getCapabilities().torch ? 'diagnostic-ok' : 'diagnostic-warning'}">
+        💡 Linterna: ${track.getCapabilities().torch ? 'Disponible ✅' : 'No disponible'}
+      </div>`;
+      
+      // Probar escaneo en tiempo real
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      canvasContext.drawImage(video, 0, 0, canvas.width, canvas.height);
+      
+      const imageData = canvasContext.getImageData(0, 0, canvas.width, canvas.height);
+      const qrConfig = qrConfigs[qrConfigSelect.value] || qrConfigs.auto;
+      const code = jsQR(imageData.data, canvas.width, canvas.height, qrConfig);
+      
+      diagnostics += `<div class="diagnostic-item ${code ? 'diagnostic-ok' : 'diagnostic-warning'}">
+        🔄 Escáner QR: ${code ? 'Funcionando ✅' : 'No detecta QR en vista actual'}
+      </div>`;
+      
+      // Información de luminosidad
+      const brightness = calculateBrightness(imageData);
+      diagnostics += `<div class="diagnostic-item ${brightness > 50 ? 'diagnostic-ok' : 'diagnostic-warning'}">
+        💡 Luminosidad: ${brightness.toFixed(1)}% ${brightness > 50 ? '✅' : '⚠️ Muy oscuro'}
+      </div>`;
+      
+      diagnosticResults.innerHTML = diagnostics;
+      diagnosticPanel.classList.remove('hidden');
+      
+      // Mostrar imagen de diagnóstico
+      debugCanvas.width = canvas.width;
+      debugCanvas.height = canvas.height;
+      debugContext.drawImage(canvas, 0, 0);
+      debugCanvas.style.display = 'block';
+    }
+
+    function calculateBrightness(imageData) {
+      let total = 0;
+      const data = imageData.data;
+      for (let i = 0; i < data.length; i += 4) {
+        total += (data[i] + data[i + 1] + data[i + 2]) / 3;
+      }
+      return (total / (data.length / 4)) / 2.55; // Convert to percentage
+    }
+
+    async function startCamera() {
+      if (!userSelect.value || !projectSelect.value) {
+        showStatus('Completa todos los campos requeridos', 'error');
         return;
       }
 
@@ -534,7 +581,11 @@
         stream = await navigator.mediaDevices.getUserMedia(constraints);
         
         video.srcObject = stream;
-        await video.play();
+        await new Promise((resolve) => {
+          video.onloadedmetadata = () => {
+            video.play().then(resolve);
+          };
+        });
         
         cameraSection.classList.remove('hidden');
         startScanBtn.classList.add('hidden');
@@ -543,7 +594,7 @@
         lastScannedCode = '';
         qrScanningActive = true;
         
-        // Mostrar información de calidad
+        // Información de calidad
         const track = stream.getVideoTracks()[0];
         const settings = track.getSettings();
         qualityInfoDiv.textContent = `Resolución: ${settings.width}x${settings.height} - FPS: ${settings.frameRate || 'N/A'}`;
@@ -551,7 +602,7 @@
         
         hideStatus();
 
-        // Inicializar escáner según el tipo seleccionado
+        // Inicializar escáner
         const scannerType = getScannerType();
         if (scannerType !== 'barcode') {
           startQRScanning();
@@ -560,31 +611,28 @@
           try {
             await initQuagga();
           } catch (error) {
-            console.warn('Quagga no pudo inicializarse:', error);
-            showStatus('Escáner de códigos de barras no disponible', 'warning');
+            console.warn('Quagga no disponible:', error);
           }
         }
         
-        // Mostrar botón de linterna si está disponible
-        if (stream.getVideoTracks()[0].getCapabilities().torch) {
+        // Control de linterna
+        if (track.getCapabilities().torch) {
           toggleTorchBtn.classList.remove('hidden');
         }
         
       } catch (error) {
-        console.error('Camera error:', error);
-        showStatus('Error al acceder a la cámara: ' + error.message, 'error');
+        console.error('Error cámara:', error);
+        showStatus(`Error: ${error.message}`, 'error');
       }
     }
 
-    // Función para detener la cámara
     function stopCamera() {
       scanning = false;
       qrScanningActive = false;
+      diagnosticMode = false;
       
       if (stream) {
-        stream.getTracks().forEach(track => {
-          track.stop();
-        });
+        stream.getTracks().forEach(track => track.stop());
         stream = null;
       }
       
@@ -592,33 +640,56 @@
       startScanBtn.classList.remove('hidden');
       toggleTorchBtn.classList.add('hidden');
       qualityInfoDiv.classList.add('hidden');
+      debugCanvas.style.display = 'none';
       stopQuagga();
       torchOn = false;
     }
 
-    // Función MEJORADA para escanear QR
+    // ESCANEADO QR MEJORADO
     function startQRScanning() {
+      let lastScanTime = 0;
+      const scanInterval = 100; // ms entre escaneos
+      
       function scanQRFrame() {
         if (!scanning || !qrScanningActive) return;
 
-        if (video.readyState === video.HAVE_ENOUGH_DATA && video.videoWidth > 0 && video.videoHeight > 0) {
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
-          
+        const now = Date.now();
+        if (now - lastScanTime < scanInterval) {
+          requestAnimationFrame(scanQRFrame);
+          return;
+        }
+        lastScanTime = now;
+
+        if (video.readyState === video.HAVE_ENOUGH_DATA && video.videoWidth > 0) {
           try {
-            canvasContext.drawImage(video, 0, 0, canvas.width, canvas.height);
-            const imageData = canvasContext.getImageData(0, 0, canvas.width, canvas.height);
-            const code = jsQR(imageData.data, imageData.width, imageData.height, {
-              inversionAttempts: "dontInvert",
-            });
+            // Usar diferentes tamaños para diferentes escenarios
+            let scanWidth, scanHeight;
+            if (diagnosticMode) {
+              scanWidth = video.videoWidth;
+              scanHeight = video.videoHeight;
+            } else {
+              // Para mejor performance, usar tamaño reducido pero mantener relación de aspecto
+              const scale = 0.7;
+              scanWidth = Math.floor(video.videoWidth * scale);
+              scanHeight = Math.floor(video.videoHeight * scale);
+            }
+            
+            canvas.width = scanWidth;
+            canvas.height = scanHeight;
+            canvasContext.drawImage(video, 0, 0, scanWidth, scanHeight);
+            
+            const imageData = canvasContext.getImageData(0, 0, scanWidth, scanHeight);
+            const qrConfig = qrConfigs[qrConfigSelect.value] || qrConfigs.auto;
+            const code = jsQR(imageData.data, scanWidth, scanHeight, qrConfig);
             
             if (code && getScannerType() !== 'barcode') {
+              console.log('QR detectado:', code.data);
               handleScannedCode(code.data, 'QR');
             }
             
             scanAttempts++;
-            if (scanAttempts % 30 === 0) {
-              debugInfoDiv.textContent = `Intentos: ${scanAttempts} - Resolución: ${canvas.width}x${canvas.height}`;
+            if (scanAttempts % 50 === 0) {
+              debugInfoDiv.textContent = `Escaneos: ${scanAttempts} - Tamaño: ${scanWidth}x${scanHeight} - Config: ${qrConfigSelect.value}`;
             }
           } catch (error) {
             console.warn('Error en escaneo QR:', error);
@@ -633,18 +704,16 @@
       scanQRFrame();
     }
 
-    // Función para mostrar resultado
     function showQRResult(data, type) {
       qrDataDiv.innerHTML = `
         <strong>Tipo:</strong> ${type}<br>
         <strong>Datos:</strong> ${data}
       `;
-      debugInfoDiv.textContent = `Escaneado exitoso en ${scanAttempts} intentos`;
+      debugInfoDiv.textContent = `Éxito en ${scanAttempts} intentos - Configuración: ${qrConfigSelect.value}`;
       resultDiv.classList.remove('hidden');
-      showStatus(`${type} detectado correctamente`, 'success');
+      showStatus('✅ Código detectado correctamente', 'success');
     }
 
-    // Función para guardar datos en Google Sheets
     async function saveToGoogleSheets() {
       const user = userSelect.value;
       const project = projectSelect.value;
@@ -657,7 +726,7 @@
       }
 
       saveDataBtn.disabled = true;
-      showStatus('Guardando datos...', 'info');
+      showStatus('Guardando...', 'info');
 
       try {
         const formData = new URLSearchParams();
@@ -677,30 +746,31 @@
         const result = await response.text();
 
         if (result.includes('ÉXITO')) {
-          showStatus('✓ Datos guardados exitosamente', 'success');
+          showStatus('✅ Guardado exitoso', 'success');
           setTimeout(() => {
             resultDiv.classList.add('hidden');
             currentQRData = '';
             commentsInput.value = '';
           }, 2000);
         } else if (result.includes('DUPLICADO')) {
-          showStatus('⚠ Este código ya fue escaneado', 'warning');
+          showStatus('⚠️ Código ya escaneado', 'warning');
         } else {
-          showStatus('✗ Error al guardar', 'error');
+          showStatus('❌ Error al guardar', 'error');
         }
       } catch (error) {
         console.error('Error:', error);
-        showStatus('✗ Error de conexión', 'error');
+        showStatus('❌ Error de conexión', 'error');
       } finally {
         saveDataBtn.disabled = false;
       }
     }
 
-    // Event Listeners
+    // EVENT LISTENERS
     startScanBtn.addEventListener('click', startCamera);
     stopScanBtn.addEventListener('click', stopCamera);
     saveDataBtn.addEventListener('click', saveToGoogleSheets);
     toggleTorchBtn.addEventListener('click', toggleTorch);
+    runDiagnosticBtn.addEventListener('click', runScannerDiagnostic);
     
     scanAgainBtn.addEventListener('click', function() {
       resultDiv.classList.add('hidden');
@@ -708,9 +778,13 @@
       startCamera();
     });
 
-    // Limpiar al cambiar selecciones
     userSelect.addEventListener('change', hideStatus);
     projectSelect.addEventListener('change', hideStatus);
+
+    // Sugerencias automáticas basadas en diagnóstico
+    qrConfigSelect.addEventListener('change', function() {
+      showStatus(`Configuración cambiada a: ${this.options[this.selectedIndex].text}`, 'info');
+    });
   </script>
 </body>
 </html>
