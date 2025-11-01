@@ -215,6 +215,19 @@
       text-align: center;
       font-size: 12px;
     }
+    .redirect-message {
+      margin-top: 15px;
+      padding: 10px;
+      background-color: #e7f3ff;
+      border-radius: 5px;
+      text-align: center;
+      font-size: 14px;
+      color: #0066cc;
+    }
+    .countdown {
+      font-weight: bold;
+      color: #ff6600;
+    }
     @keyframes scanLine {
       0% { top: 0; }
       100% { top: 100%; }
@@ -315,12 +328,18 @@
         <button id="saveData">Guardar en Google Sheets</button>
         <button id="scanAgain">Escanear otro</button>
       </div>
+      <div id="redirectMessage" class="redirect-message hidden">
+        Serás redirigido al formulario en <span id="countdown" class="countdown">5</span> segundos...
+      </div>
     </div>
   </div>
 
   <script>
     // URL fija de Google Apps Script
-    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxGNCa7bR07OAsHxewLVXLkcJV6k8G4zJEUCYkxYyg36W_18T9jjfRwddbvmB9oTeoI/exec';
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzDgU6Q-xRgUgotBXSgXVN0OXEXw4UaSncSIrRkq1rJPgQjfhmxnNhhrHP9RhwTdc5g/exec';
+    
+    // URL del formulario de Google para redirección
+    const GOOGLE_FORM_URL = 'https://forms.gle/HJGdSzr79Mf79ibH6';
 
     // Elementos DOM
     const userSelect = document.getElementById('userSelect');
@@ -340,6 +359,8 @@
     const scannerTypeRadios = document.querySelectorAll('input[name="scannerType"]');
     const scanFeedback = document.getElementById('scanFeedback');
     const debugInfo = document.getElementById('debugInfo');
+    const redirectMessage = document.getElementById('redirectMessage');
+    const countdownSpan = document.getElementById('countdown');
     
     // Opciones de escaneo
     const invertColorsCheckbox = document.getElementById('invertColors');
@@ -354,6 +375,7 @@
     const SCAN_COOLDOWN = 1000; // 1 segundo entre escaneos para evitar duplicados
     let frameCount = 0;
     let html5QrCode = null;
+    let redirectTimer = null;
 
     // Función para mostrar mensajes de estado
     function showStatus(message, type = 'info') {
@@ -561,6 +583,23 @@
       if (navigator.vibrate) navigator.vibrate(200);
     }
 
+    // Función para redirigir al formulario de Google
+    function redirectToGoogleForm() {
+      redirectMessage.classList.remove('hidden');
+      let countdown = 5;
+      countdownSpan.textContent = countdown;
+      
+      redirectTimer = setInterval(() => {
+        countdown--;
+        countdownSpan.textContent = countdown;
+        
+        if (countdown <= 0) {
+          clearInterval(redirectTimer);
+          window.location.href = GOOGLE_FORM_URL;
+        }
+      }, 1000);
+    }
+
     // Función para guardar datos en Google Sheets
     async function saveToGoogleSheets() {
       const user = userSelect.value;
@@ -618,22 +657,19 @@
         if (result.includes('ÉXITO')) {
           showStatus('✓ Datos guardados exitosamente en Google Sheets', 'success');
           
-          // Limpiar formulario después de éxito
-          setTimeout(() => {
-            resultDiv.classList.add('hidden');
-            currentQRData = '';
-            commentsInput.value = ''; // Limpiar comentarios
-          }, 3000);
+          // Iniciar cuenta regresiva para redirección
+          redirectToGoogleForm();
           
         } else if (result.includes('DUPLICADO')) {
           showStatus('⚠ Este código ya fue escaneado anteriormente', 'warning');
+          saveDataBtn.disabled = false;
         } else {
           showStatus('✗ Error al guardar: ' + result, 'error');
+          saveDataBtn.disabled = false;
         }
       } catch (error) {
         console.error('Error completo:', error);
         showStatus('✗ Error de conexión: ' + error.message, 'error');
-      } finally {
         saveDataBtn.disabled = false;
       }
     }
@@ -644,7 +680,14 @@
     saveDataBtn.addEventListener('click', saveToGoogleSheets);
     
     scanAgainBtn.addEventListener('click', function() {
+      // Limpiar cualquier temporizador de redirección activo
+      if (redirectTimer) {
+        clearInterval(redirectTimer);
+        redirectTimer = null;
+      }
+      
       resultDiv.classList.add('hidden');
+      redirectMessage.classList.add('hidden');
       currentQRData = '';
       hideStatus();
       startCamera();
@@ -665,5 +708,3 @@
   </script>
 </body>
 </html>
-
-
