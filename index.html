@@ -114,10 +114,17 @@
       border-radius: 5px;
       background-color: #000;
     }
+    #reader {
+      width: 100%;
+      height: 300px;
+      border-radius: 5px;
+      margin: 10px 0;
+      background: #000;
+    }
     #video {
       width: 100%;
       height: auto;
-      display: block;
+      display: none;
       object-fit: cover;
     }
     #canvas {
@@ -213,7 +220,9 @@
       100% { top: 100%; }
     }
   </style>
-  <script src="https://unpkg.com/jsqr@1.4.0/dist/jsQR.js"></script>
+  <!-- Librería que funciona para QR -->
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <!-- Librería para códigos de barras -->
   <script src="https://cdn.jsdelivr.net/npm/quagga@0.12.1/dist/quagga.min.js"></script>
 </head>
 <body>
@@ -271,6 +280,7 @@
     <!-- CÁMARA Y CANVAS -->
     <div id="cameraSection" class="hidden">
       <div class="camera-container">
+        <div id="reader"></div>
         <video id="video" autoplay playsinline></video>
         <canvas id="canvas"></canvas>
         <div class="scanner-overlay">
@@ -343,6 +353,7 @@
     let lastScanTime = 0;
     const SCAN_COOLDOWN = 1000; // 1 segundo entre escaneos para evitar duplicados
     let frameCount = 0;
+    let html5QrCode = null;
 
     // Función para mostrar mensajes de estado
     function showStatus(message, type = 'info') {
@@ -451,51 +462,80 @@
       try {
         showStatus('Iniciando cámara...', 'info');
         
-        // Solicitar permisos de cámara con configuración óptima
-        stream = await navigator.mediaDevices.getUserMedia({ 
-          video: { 
-            facingMode: "environment",
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
-          } 
-        });
+        cameraSection.classList.remove('hidden');
+        startScanBtn.classList.add('hidden');
+        scanning = true;
         
-        video.srcObject = stream;
+        hideStatus();
+        scanFeedback.classList.remove('hidden');
         
-        // Esperar a que el video esté listo
-        video.addEventListener('loadedmetadata', () => {
-          // Ajustar el tamaño del canvas al del video
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
+        if (debugModeCheckbox.checked) {
+          debugInfo.classList.remove('hidden');
+        }
+        
+        // Inicializar escáner según el tipo seleccionado
+        const scannerType = getScannerType();
+        
+        if (scannerType !== 'barcode') {
+          // Inicializar html5-qrcode para QR
+          html5QrCode = new Html5Qrcode("reader");
           
-          cameraSection.classList.remove('hidden');
-          startScanBtn.classList.add('hidden');
-          scanning = true;
+          const config = { 
+            fps: 10, 
+            qrbox: { width: 250, height: 250 },
+            aspectRatio: 1.0,
+            // Configuración para detectar QRs invertidos
+            experimentalFeatures: {
+              useBarCodeDetectorIfSupported: true
+            }
+          };
           
-          hideStatus();
-          scanFeedback.classList.remove('hidden');
-          
-          if (debugModeCheckbox.checked) {
-            debugInfo.classList.remove('hidden');
-          }
-          
-          // Inicializar escáner según el tipo seleccionado
-          const scannerType = getScannerType();
-          if (scannerType !== 'barcode') {
-            scanQRCode();
-          }
-          if (scannerType !== 'qr') {
-            initQuagga();
-          }
-        });
+          await html5QrCode.start(
+            { facingMode: "environment" },
+            config,
+            (decodedText, decodedResult) => {
+              // QR detectado
+              if (debugModeCheckbox.checked) {
+                debugInfo.textContent = `QR detectado: ${decodedText.substring(0, 20)}...`;
+              }
+              handleScannedCode(decodedText, 'QR');
+            },
+            (errorMessage) => {
+              // Error continuo (no crítico)
+              if (debugModeCheckbox.checked && frameCount % 30 === 0) {
+                debugInfo.textContent = `Error: ${errorMessage}`;
+              }
+            }
+          ).then(() => {
+            scanFeedback.textContent = "🎯 Apunta al QR con la cámara";
+          }).catch(err => {
+            showStatus(`Error al iniciar escáner QR: ${err}`, 'error');
+            console.error("Error al iniciar html5-qrcode:", err);
+          });
+        }
+        
+        if (scannerType !== 'qr') {
+          // Inicializar Quagga para códigos de barras
+          video.style.display = 'block';
+          initQuagga();
+        }
         
       } catch (error) {
         showStatus('Error al acceder a la cámara: ' + error.message, 'error');
+        console.error("Error al iniciar cámara:", error);
       }
     }
 
     // Función para detener la cámara
     function stopCamera() {
+      if (html5QrCode) {
+        html5QrCode.stop().then(() => {
+          html5QrCode = null;
+        }).catch(err => {
+          console.error("Error al detener html5-qrcode:", err);
+        });
+      }
+      
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
         stream = null;
@@ -506,116 +546,9 @@
       startScanBtn.classList.remove('hidden');
       scanFeedback.classList.add('hidden');
       debugInfo.classList.add('hidden');
+      video.style.display = 'none';
       hideStatus();
       stopQuagga();
-    }
-
-    // Función para mejorar el contraste
-    function enhanceContrast(imageData) {
-      const data = imageData.data;
-      const factor = 1.5; // Factor de contraste
-      
-      for (let i = 0; i < data.length; i += 4) {
-        data[i] = Math.min(255, Math.max(0, factor * (data[i] - 128) + 128));     // Rojo
-        data[i + 1] = Math.min(255, Math.max(0, factor * (data[i + 1] - 128) + 128)); // Verde
-        data[i + 2] = Math.min(255, Math.max(0, factor * (data[i + 2] - 128) + 128)); // Azul
-      }
-      
-      return imageData;
-    }
-
-    // Función para convertir a escala de grises
-    function convertToGrayscale(imageData) {
-      const data = imageData.data;
-      
-      for (let i = 0; i < data.length; i += 4) {
-        const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
-        data[i] = gray;     // Rojo
-        data[i + 1] = gray; // Verde
-        data[i + 2] = gray; // Azul
-      }
-      
-      return imageData;
-    }
-
-    // Función para invertir colores
-    function invertColors(imageData) {
-      const data = imageData.data;
-      
-      for (let i = 0; i < data.length; i += 4) {
-        data[i] = 255 - data[i];       // Rojo
-        data[i + 1] = 255 - data[i + 1]; // Verde
-        data[i + 2] = 255 - data[i + 2]; // Azul
-      }
-      
-      return imageData;
-    }
-
-    // Función para escanear QR
-    function scanQRCode() {
-      if (!scanning) return;
-
-      if (video.readyState === video.HAVE_ENOUGH_DATA) {
-        canvasContext.drawImage(video, 0, 0, canvas.width, canvas.height);
-        
-        let imageData = canvasContext.getImageData(0, 0, canvas.width, canvas.height);
-        
-        // Mejorar contraste si está habilitado
-        if (enhanceContrastCheckbox.checked) {
-          imageData = enhanceContrast(imageData);
-        }
-        
-        frameCount++;
-        
-        // Mostrar información de depuración
-        if (debugModeCheckbox.checked && frameCount % 30 === 0) {
-          debugInfo.textContent = `Frame: ${frameCount} | Resolución: ${canvas.width}x${canvas.height}`;
-        }
-        
-        // Intentar escanear con la imagen original
-        let code = jsQR(imageData.data, imageData.width, imageData.height, {
-          inversionAttempts: "dontInvert"
-        });
-        
-        // Si no se encuentra, intentar con ambas opciones
-        if (!code) {
-          code = jsQR(imageData.data, imageData.width, imageData.height, {
-            inversionAttempts: "attemptBoth"
-          });
-        }
-        
-        // Si no se encuentra y está habilitada la detección de QRs invertidos
-        if (!code && invertColorsCheckbox.checked) {
-          // Convertir a escala de grises primero
-          let grayscaleImageData = convertToGrayscale(imageData);
-          
-          // Invertir colores
-          let invertedImageData = invertColors(grayscaleImageData);
-          
-          // Intentar escanear la imagen invertida
-          code = jsQR(invertedImageData.data, invertedImageData.width, invertedImageData.height, {
-            inversionAttempts: "dontInvert"
-          });
-          
-          // Si aún no se encuentra, intentar con ambas opciones
-          if (!code) {
-            code = jsQR(invertedImageData.data, invertedImageData.width, invertedImageData.height, {
-              inversionAttempts: "attemptBoth"
-            });
-          }
-        }
-        
-        if (code && getScannerType() !== 'barcode') {
-          if (debugModeCheckbox.checked) {
-            debugInfo.textContent = `QR detectado: ${code.data.substring(0, 20)}...`;
-          }
-          handleScannedCode(code.data, 'QR');
-        }
-      }
-      
-      if (scanning) {
-        requestAnimationFrame(scanQRCode);
-      }
     }
 
     // Función para mostrar resultado del QR
@@ -623,6 +556,9 @@
       qrDataDiv.innerHTML = `<strong>Tipo:</strong> ${type}<br><strong>Datos:</strong> ${data}`;
       resultDiv.classList.remove('hidden');
       showStatus(`${type} detectado correctamente`, 'success');
+      
+      // Vibrar (móviles)
+      if (navigator.vibrate) navigator.vibrate(200);
     }
 
     // Función para guardar datos en Google Sheets
@@ -729,3 +665,4 @@
   </script>
 </body>
 </html>
+
