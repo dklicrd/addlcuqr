@@ -2,14 +2,15 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
   <title>Escanea QR y Códigos de Barras</title>
   <style>
     body {
       font-family: Arial, sans-serif;
       margin: 0;
-      padding: 20px;
+      padding: 10px;
       background-color: #f5f5f5;
+      overflow-x: hidden;
     }
     .container {
       max-width: 500px;
@@ -22,6 +23,7 @@
     h1 {
       text-align: center;
       color: #333;
+      font-size: 1.5em;
     }
     select, button, textarea {
       width: 100%;
@@ -49,12 +51,6 @@
     button:disabled {
       background-color: #cccccc;
       cursor: not-allowed;
-    }
-    #video {
-      width: 100%;
-      border: 2px solid #007cba;
-      border-radius: 5px;
-      margin: 10px 0;
     }
     #status {
       margin: 10px 0;
@@ -100,27 +96,62 @@
       margin-bottom: 5px;
       font-weight: bold;
     }
-    .scanner-overlay {
+    .scanner-options {
+      background-color: #f8f9fa;
+      padding: 10px;
+      border-radius: 5px;
+      margin: 10px 0;
+    }
+    .scanner-options label {
+      display: block;
+      margin: 5px 0;
+    }
+    .camera-container {
       position: relative;
-      margin-top: 10px;
+      width: 100%;
+      margin: 10px 0;
+      overflow: hidden;
+      border-radius: 5px;
+      background-color: #000;
+    }
+    #video {
+      width: 100%;
+      height: auto;
+      display: block;
+      object-fit: cover;
+    }
+    #canvas {
+      display: none;
+    }
+    .scanner-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
     }
     .scan-region {
       position: absolute;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      width: 250px;
-      height: 250px;
+      width: 70%;
+      max-width: 250px;
+      height: 0;
+      padding-bottom: 70%;
+      max-height: 250px;
       border: 2px solid rgba(0, 124, 186, 0.8);
       border-radius: 10px;
       box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
     }
     .scan-line {
+      position: absolute;
+      top: 0;
+      left: 0;
       width: 100%;
       height: 2px;
       background: linear-gradient(to right, transparent, #ff3b30, transparent);
-      position: absolute;
-      top: 0;
       animation: scanLine 2s linear infinite;
     }
     .corner {
@@ -176,6 +207,10 @@
       border-radius: 5px;
       text-align: center;
       font-size: 12px;
+    }
+    @keyframes scanLine {
+      0% { top: 0; }
+      100% { top: 100%; }
     }
   </style>
   <script src="https://unpkg.com/jsqr@1.4.0/dist/jsQR.js"></script>
@@ -235,18 +270,20 @@
 
     <!-- CÁMARA Y CANVAS -->
     <div id="cameraSection" class="hidden">
-      <video id="video" autoplay playsinline></video>
-      <canvas id="canvas" class="hidden"></canvas>
-      <div class="scanner-overlay">
-        <div class="scan-region">
-          <div class="corner corner-tl"></div>
-          <div class="corner corner-tr"></div>
-          <div class="corner corner-bl"></div>
-          <div class="corner corner-br"></div>
-          <div class="scan-line"></div>
+      <div class="camera-container">
+        <video id="video" autoplay playsinline></video>
+        <canvas id="canvas"></canvas>
+        <div class="scanner-overlay">
+          <div class="scan-region">
+            <div class="corner corner-tl"></div>
+            <div class="corner corner-tr"></div>
+            <div class="corner corner-bl"></div>
+            <div class="corner corner-br"></div>
+            <div class="scan-line"></div>
+          </div>
+          <div id="scanFeedback" class="scan-feedback hidden">Buscando código QR...</div>
+          <div id="debugInfo" class="debug-info hidden"></div>
         </div>
-        <div id="scanFeedback" class="scan-feedback hidden">Buscando código QR...</div>
-        <div id="debugInfo" class="debug-info hidden"></div>
       </div>
       
       <div class="buttons">
@@ -273,7 +310,7 @@
 
   <script>
     // URL fija de Google Apps Script
-    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxGNCa7bR07OAsHxewLVXLkcJV6k8G4zJEUCYkxYyg36W_18T9jjfRwddbvmB9oTeoI/exec';
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzDgU6Q-xRgUgotBXSgXVN0OXEXw4UaSncSIrRkq1rJPgQjfhmxnNhhrHP9RhwTdc5g/exec';
 
     // Elementos DOM
     const userSelect = document.getElementById('userSelect');
@@ -427,6 +464,10 @@
         
         // Esperar a que el video esté listo
         video.addEventListener('loadedmetadata', () => {
+          // Ajustar el tamaño del canvas al del video
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          
           cameraSection.classList.remove('hidden');
           startScanBtn.classList.add('hidden');
           scanning = true;
@@ -483,6 +524,20 @@
       return imageData;
     }
 
+    // Función para convertir a escala de grises
+    function convertToGrayscale(imageData) {
+      const data = imageData.data;
+      
+      for (let i = 0; i < data.length; i += 4) {
+        const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+        data[i] = gray;     // Rojo
+        data[i + 1] = gray; // Verde
+        data[i + 2] = gray; // Azul
+      }
+      
+      return imageData;
+    }
+
     // Función para invertir colores
     function invertColors(imageData) {
       const data = imageData.data;
@@ -501,9 +556,6 @@
       if (!scanning) return;
 
       if (video.readyState === video.HAVE_ENOUGH_DATA) {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        
         canvasContext.drawImage(video, 0, 0, canvas.width, canvas.height);
         
         let imageData = canvasContext.getImageData(0, 0, canvas.width, canvas.height);
@@ -534,7 +586,11 @@
         
         // Si no se encuentra y está habilitada la detección de QRs invertidos
         if (!code && invertColorsCheckbox.checked) {
-          const invertedImageData = invertColors(imageData);
+          // Convertir a escala de grises primero
+          let grayscaleImageData = convertToGrayscale(imageData);
+          
+          // Invertir colores
+          let invertedImageData = invertColors(grayscaleImageData);
           
           // Intentar escanear la imagen invertida
           code = jsQR(invertedImageData.data, invertedImageData.width, invertedImageData.height, {
@@ -670,17 +726,6 @@
         debugInfo.classList.add('hidden');
       }
     });
-
-    // CSS para la animación de la línea de escaneo
-    const style = document.createElement('style');
-    style.textContent = `
-      @keyframes scanLine {
-        0% { top: 0; }
-        100% { top: 100%; }
-      }
-    `;
-    document.head.appendChild(style);
   </script>
 </body>
 </html>
-
