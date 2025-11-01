@@ -100,16 +100,6 @@
       margin-bottom: 5px;
       font-weight: bold;
     }
-    .scanner-options {
-      background-color: #f8f9fa;
-      padding: 10px;
-      border-radius: 5px;
-      margin: 10px 0;
-    }
-    .scanner-options label {
-      display: block;
-      margin: 5px 0;
-    }
     .scanner-overlay {
       position: relative;
       margin-top: 10px;
@@ -175,6 +165,18 @@
       text-align: center;
       font-size: 14px;
     }
+    .debug-info {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      right: 10px;
+      background-color: rgba(0, 0, 0, 0.7);
+      color: white;
+      padding: 5px;
+      border-radius: 5px;
+      text-align: center;
+      font-size: 12px;
+    }
   </style>
   <script src="https://unpkg.com/jsqr@1.4.0/dist/jsQR.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/quagga@0.12.1/dist/quagga.min.js"></script>
@@ -227,8 +229,8 @@
     <div class="scanner-options">
       <strong>Opciones avanzadas de escaneo QR:</strong>
       <label><input type="checkbox" id="invertColors" checked> Detectar QRs invertidos</label>
-      <label><input type="checkbox" id="enhanceContrast" checked> Mejorar contraste</label>
-      <label><input type="checkbox" id="adaptiveThreshold" checked> Umbral adaptativo</label>
+      <label><input type="checkbox" id="enhanceContrast"> Mejorar contraste</label>
+      <label><input type="checkbox" id="debugMode"> Modo depuración</label>
     </div>
 
     <!-- CÁMARA Y CANVAS -->
@@ -244,6 +246,7 @@
           <div class="scan-line"></div>
         </div>
         <div id="scanFeedback" class="scan-feedback hidden">Buscando código QR...</div>
+        <div id="debugInfo" class="debug-info hidden"></div>
       </div>
       
       <div class="buttons">
@@ -289,11 +292,12 @@
     const cameraSection = document.getElementById('cameraSection');
     const scannerTypeRadios = document.querySelectorAll('input[name="scannerType"]');
     const scanFeedback = document.getElementById('scanFeedback');
+    const debugInfo = document.getElementById('debugInfo');
     
     // Opciones de escaneo
     const invertColorsCheckbox = document.getElementById('invertColors');
     const enhanceContrastCheckbox = document.getElementById('enhanceContrast');
-    const adaptiveThresholdCheckbox = document.getElementById('adaptiveThreshold');
+    const debugModeCheckbox = document.getElementById('debugMode');
 
     let stream = null;
     let scanning = false;
@@ -301,6 +305,7 @@
     let quaggaInitialized = false;
     let lastScanTime = 0;
     const SCAN_COOLDOWN = 1000; // 1 segundo entre escaneos para evitar duplicados
+    let frameCount = 0;
 
     // Función para mostrar mensajes de estado
     function showStatus(message, type = 'info') {
@@ -429,6 +434,10 @@
           hideStatus();
           scanFeedback.classList.remove('hidden');
           
+          if (debugModeCheckbox.checked) {
+            debugInfo.classList.remove('hidden');
+          }
+          
           // Inicializar escáner según el tipo seleccionado
           const scannerType = getScannerType();
           if (scannerType !== 'barcode') {
@@ -455,80 +464,36 @@
       cameraSection.classList.add('hidden');
       startScanBtn.classList.remove('hidden');
       scanFeedback.classList.add('hidden');
+      debugInfo.classList.add('hidden');
       hideStatus();
       stopQuagga();
     }
 
-    // Función para preprocesar imagen
-    function preprocessImage(imageData) {
+    // Función para mejorar el contraste
+    function enhanceContrast(imageData) {
       const data = imageData.data;
-      const width = imageData.width;
-      const height = imageData.height;
+      const factor = 1.5; // Factor de contraste
       
-      // Crear una copia para no modificar el original
-      const processedData = new Uint8ClampedArray(data);
-      
-      // Mejorar contraste si está habilitado
-      if (enhanceContrastCheckbox.checked) {
-        const factor = 1.5; // Factor de contraste
-        for (let i = 0; i < processedData.length; i += 4) {
-          processedData[i] = factor * (processedData[i] - 128) + 128;     // Rojo
-          processedData[i + 1] = factor * (processedData[i + 1] - 128) + 128; // Verde
-          processedData[i + 2] = factor * (processedData[i + 2] - 128) + 128; // Azul
-        }
+      for (let i = 0; i < data.length; i += 4) {
+        data[i] = Math.min(255, Math.max(0, factor * (data[i] - 128) + 128));     // Rojo
+        data[i + 1] = Math.min(255, Math.max(0, factor * (data[i + 1] - 128) + 128)); // Verde
+        data[i + 2] = Math.min(255, Math.max(0, factor * (data[i + 2] - 128) + 128)); // Azul
       }
       
-      // Aplicar umbral adaptativo si está habilitado
-      if (adaptiveThresholdCheckbox.checked) {
-        const blockSize = 15; // Tamaño del bloque para el umbral adaptativo
-        const C = 2; // Constante de resta
-        
-        for (let y = 0; y < height; y++) {
-          for (let x = 0; x < width; x++) {
-            let sum = 0;
-            let count = 0;
-            
-            // Calcular el promedio local
-            for (let dy = -blockSize/2; dy <= blockSize/2; dy++) {
-              for (let dx = -blockSize/2; dx <= blockSize/2; dx++) {
-                const ny = Math.min(Math.max(y + dy, 0), height - 1);
-                const nx = Math.min(Math.max(x + dx, 0), width - 1);
-                const idx = (ny * width + nx) * 4;
-                // Usar la luminancia (promedio ponderado)
-                sum += 0.299 * processedData[idx] + 0.587 * processedData[idx + 1] + 0.114 * processedData[idx + 2];
-                count++;
-              }
-            }
-            
-            const threshold = sum / count - C;
-            const idx = (y * width + x) * 4;
-            const luminance = 0.299 * processedData[idx] + 0.587 * processedData[idx + 1] + 0.114 * processedData[idx + 2];
-            
-            // Aplicar umbral
-            const value = luminance > threshold ? 255 : 0;
-            processedData[idx] = value;
-            processedData[idx + 1] = value;
-            processedData[idx + 2] = value;
-          }
-        }
-      }
-      
-      return new ImageData(processedData, width, height);
+      return imageData;
     }
 
     // Función para invertir colores
-    function invertImage(imageData) {
+    function invertColors(imageData) {
       const data = imageData.data;
-      const invertedData = new Uint8ClampedArray(data.length);
       
       for (let i = 0; i < data.length; i += 4) {
-        invertedData[i] = 255 - data[i];       // Rojo
-        invertedData[i + 1] = 255 - data[i + 1]; // Verde
-        invertedData[i + 2] = 255 - data[i + 2]; // Azul
-        invertedData[i + 3] = data[i + 3];      // Alpha
+        data[i] = 255 - data[i];       // Rojo
+        data[i + 1] = 255 - data[i + 1]; // Verde
+        data[i + 2] = 255 - data[i + 2]; // Azul
       }
       
-      return new ImageData(invertedData, imageData.width, imageData.height);
+      return imageData;
     }
 
     // Función para escanear QR
@@ -543,38 +508,51 @@
         
         let imageData = canvasContext.getImageData(0, 0, canvas.width, canvas.height);
         
-        // Preprocesar imagen si está habilitado
-        if (enhanceContrastCheckbox.checked || adaptiveThresholdCheckbox.checked) {
-          imageData = preprocessImage(imageData);
+        // Mejorar contraste si está habilitado
+        if (enhanceContrastCheckbox.checked) {
+          imageData = enhanceContrast(imageData);
         }
         
-        // Intentar escanear con diferentes configuraciones
-        const scanOptions = [
-          { inversionAttempts: "dontInvert" },
-          { inversionAttempts: "attemptBoth" },
-          { inversionAttempts: "onlyInvert" }
-        ];
+        frameCount++;
         
-        let code = null;
-        
-        // Intentar con diferentes opciones de configuración
-        for (const options of scanOptions) {
-          code = jsQR(imageData.data, imageData.width, imageData.height, options);
-          if (code) break;
+        // Mostrar información de depuración
+        if (debugModeCheckbox.checked && frameCount % 30 === 0) {
+          debugInfo.textContent = `Frame: ${frameCount} | Resolución: ${canvas.width}x${canvas.height}`;
         }
         
-        // Si no se encontró nada y está habilitada la detección de QRs invertidos
+        // Intentar escanear con la imagen original
+        let code = jsQR(imageData.data, imageData.width, imageData.height, {
+          inversionAttempts: "dontInvert"
+        });
+        
+        // Si no se encuentra, intentar con ambas opciones
+        if (!code) {
+          code = jsQR(imageData.data, imageData.width, imageData.height, {
+            inversionAttempts: "attemptBoth"
+          });
+        }
+        
+        // Si no se encuentra y está habilitada la detección de QRs invertidos
         if (!code && invertColorsCheckbox.checked) {
-          const invertedImageData = invertImage(imageData);
+          const invertedImageData = invertColors(imageData);
           
-          // Intentar escanear la imagen invertida con diferentes configuraciones
-          for (const options of scanOptions) {
-            code = jsQR(invertedImageData.data, invertedImageData.width, invertedImageData.height, options);
-            if (code) break;
+          // Intentar escanear la imagen invertida
+          code = jsQR(invertedImageData.data, invertedImageData.width, invertedImageData.height, {
+            inversionAttempts: "dontInvert"
+          });
+          
+          // Si aún no se encuentra, intentar con ambas opciones
+          if (!code) {
+            code = jsQR(invertedImageData.data, invertedImageData.width, invertedImageData.height, {
+              inversionAttempts: "attemptBoth"
+            });
           }
         }
         
         if (code && getScannerType() !== 'barcode') {
+          if (debugModeCheckbox.checked) {
+            debugInfo.textContent = `QR detectado: ${code.data.substring(0, 20)}...`;
+          }
           handleScannedCode(code.data, 'QR');
         }
       }
@@ -683,6 +661,15 @@
     // Validar selecciones al cambiar
     userSelect.addEventListener('change', hideStatus);
     projectSelect.addEventListener('change', hideStatus);
+
+    // Event listener para el modo de depuración
+    debugModeCheckbox.addEventListener('change', function() {
+      if (this.checked && scanning) {
+        debugInfo.classList.remove('hidden');
+      } else {
+        debugInfo.classList.add('hidden');
+      }
+    });
 
     // CSS para la animación de la línea de escaneo
     const style = document.createElement('style');
