@@ -238,6 +238,15 @@
       display: block;
       margin: 5px 0;
     }
+    .barcode-debug-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 10;
+    }
     @keyframes scanLine {
       0% { top: 0; }
       100% { top: 100%; }
@@ -303,9 +312,9 @@
     <!-- OPCIONES AVANZADAS DE ESCÁNEO DE CÓDIGOS DE BARRAS -->
     <div class="barcode-options">
       <strong>Opciones avanzadas de códigos de barras:</strong>
-      <label><input type="checkbox" id="barcodeEnhance" checked> Mejorar detección de códigos de barras</label>
-      <label><input type="checkbox" id="barcodeHalfSample" checked> Optimizar para móviles</label>
-      <label><input type="checkbox" id="barcodeDebug"> Modo depuración de códigos de barras</label>
+      <label><input type="checkbox" id="barcodeEnhance" checked> Modo de alta precisión</label>
+      <label><input type="checkbox" id="barcodeMultiFormat" checked> Múltiples formatos</label>
+      <label><input type="checkbox" id="barcodeDebug"> Modo depuración</label>
     </div>
 
     <!-- CÁMARA Y CANVAS -->
@@ -325,6 +334,7 @@
           <div id="scanFeedback" class="scan-feedback hidden">Buscando código QR...</div>
           <div id="debugInfo" class="debug-info hidden"></div>
         </div>
+        <div id="barcodeDebugContainer" class="barcode-debug-container hidden"></div>
       </div>
       
       <div class="buttons">
@@ -379,6 +389,7 @@
     const debugInfo = document.getElementById('debugInfo');
     const redirectMessage = document.getElementById('redirectMessage');
     const countdownSpan = document.getElementById('countdown');
+    const barcodeDebugContainer = document.getElementById('barcodeDebugContainer');
     
     // Opciones de escaneo
     const invertColorsCheckbox = document.getElementById('invertColors');
@@ -387,7 +398,7 @@
     
     // Opciones de códigos de barras
     const barcodeEnhanceCheckbox = document.getElementById('barcodeEnhance');
-    const barcodeHalfSampleCheckbox = document.getElementById('barcodeHalfSample');
+    const barcodeMultiFormatCheckbox = document.getElementById('barcodeMultiFormat');
     const barcodeDebugCheckbox = document.getElementById('barcodeDebug');
 
     let stream = null;
@@ -399,6 +410,7 @@
     let frameCount = 0;
     let html5QrCode = null;
     let redirectTimer = null;
+    let barcodeScanInterval = null;
 
     // Función para mostrar mensajes de estado
     function showStatus(message, type = 'info') {
@@ -420,6 +432,84 @@
       return 'both';
     }
 
+    // Función para preprocesar imagen para códigos de barras
+    function preprocessBarcodeImage() {
+      if (!video || video.readyState !== video.HAVE_ENOUGH_DATA) return null;
+      
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      canvasContext.drawImage(video, 0, 0, canvas.width, canvas.height);
+      
+      const imageData = canvasContext.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
+      
+      // Convertir a escala de grises
+      for (let i = 0; i < data.length; i += 4) {
+        const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+        data[i] = gray;
+        data[i + 1] = gray;
+        data[i + 2] = gray;
+      }
+      
+      // Mejorar contraste para códigos de barras
+      if (barcodeEnhanceCheckbox.checked) {
+        for (let i = 0; i < data.length; i += 4) {
+          const value = data[i];
+          const enhanced = value > 128 ? 255 : 0;
+          data[i] = enhanced;
+          data[i + 1] = enhanced;
+          data[i + 2] = enhanced;
+        }
+      }
+      
+      return imageData;
+    }
+
+    // Función para escanear códigos de barras con múltiples librerías
+    function scanBarcodeWithMultipleLibraries() {
+      if (!scanning || getScannerType() === 'qr') return;
+      
+      const imageData = preprocessBarcodeImage();
+      if (!imageData) return;
+      
+      frameCount++;
+      
+      // Mostrar información de depuración
+      if (barcodeDebugCheckbox.checked && frameCount % 30 === 0) {
+        debugInfo.textContent = `Procesando frame ${frameCount} para códigos de barras...`;
+      }
+      
+      // Intentar con html5-qrcode para códigos de barras
+      if (html5QrCode && html5QrCode.isScanning) {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = imageData.width;
+          canvas.height = imageData.height;
+          const ctx = canvas.getContext('2d');
+          ctx.putImageData(imageData, 0, 0);
+          
+          // Crear un ImageData para html5-qrcode
+          const imageDataUrl = canvas.toDataURL();
+          
+          // Intentar escanear con html5-qrcode
+          Html5Qrcode.scanFile(imageDataUrl, true)
+            .then(decodedText => {
+              if (decodedText && getScannerType() !== 'qr') {
+                if (barcodeDebugCheckbox.checked) {
+                  debugInfo.textContent = `Código detectado con html5-qrcode: ${decodedText}`;
+                }
+                handleScannedCode(decodedText, 'Código de barras');
+              }
+            })
+            .catch(err => {
+              // Silenciar errores para no inundar la consola
+            });
+        } catch (err) {
+          // Silenciar errores
+        }
+      }
+    }
+
     // Inicializar Quagga para códigos de barras con configuración mejorada
     function initQuagga() {
       if (quaggaInitialized) return;
@@ -437,8 +527,8 @@
           }
         },
         locator: {
-          patchSize: barcodeEnhanceCheckbox.checked ? "large" : "medium",
-          halfSample: barcodeHalfSampleCheckbox.checked,
+          patchSize: barcodeEnhanceCheckbox.checked ? "x-large" : "large",
+          halfSample: false, // Desactivado para mayor precisión
           debug: {
             showCanvas: barcodeDebugCheckbox.checked,
             showPatches: barcodeDebugCheckbox.checked,
@@ -455,9 +545,9 @@
           }
         },
         numOfWorkers: navigator.hardwareConcurrency || 4,
-        frequency: 10,
+        frequency: 5, // Reducido para mayor precisión
         decoder: {
-          readers: [
+          readers: barcodeMultiFormatCheckbox.checked ? [
             "code_128_reader",
             "ean_reader",
             "ean_8_reader",
@@ -470,6 +560,13 @@
             "2of5_reader",
             "code_93_reader",
             "code_32_reader"
+          ] : [
+            "code_128_reader",
+            "ean_reader",
+            "ean_8_reader",
+            "code_39_reader",
+            "upc_reader",
+            "upc_e_reader"
           ],
           debug: {
             drawBoundingBox: barcodeDebugCheckbox.checked,
@@ -490,17 +587,9 @@
         quaggaInitialized = true;
         Quagga.start();
         
-        if (barcodeDebugCheckbox.checked) {
-          // Añadir canvas de depuración si está activado
-          const debugCanvas = Quagga.canvas.dom.overlay;
-          debugCanvas.style.position = 'absolute';
-          debugCanvas.style.top = '0';
-          debugCanvas.style.left = '0';
-          debugCanvas.style.width = '100%';
-          debugCanvas.style.height = '100%';
-          debugCanvas.style.zIndex = '10';
-          debugCanvas.style.pointerEvents = 'none';
-          document.querySelector('.scanner-overlay').appendChild(debugCanvas);
+        // Iniciar escaneo adicional con múltiples librerías
+        if (barcodeEnhanceCheckbox.checked) {
+          barcodeScanInterval = setInterval(scanBarcodeWithMultipleLibraries, 500);
         }
       });
 
@@ -532,7 +621,7 @@
         const code = result.codeResult.code;
         if (code && getScannerType() !== 'qr') {
           if (barcodeDebugCheckbox.checked) {
-            debugInfo.textContent = `Código de barras detectado: ${code}`;
+            debugInfo.textContent = `Código de barras detectado con Quagga: ${code}`;
           }
           handleScannedCode(code, 'Código de barras');
         }
@@ -541,6 +630,11 @@
 
     // Detener Quagga
     function stopQuagga() {
+      if (barcodeScanInterval) {
+        clearInterval(barcodeScanInterval);
+        barcodeScanInterval = null;
+      }
+      
       if (quaggaInitialized) {
         Quagga.stop();
         quaggaInitialized = false;
@@ -607,18 +701,28 @@
             // Configuración para detectar QRs invertidos
             experimentalFeatures: {
               useBarCodeDetectorIfSupported: true
-            }
+            },
+            // También intentar detectar códigos de barras con html5-qrcode
+            supportedScanTypes: [0, 1] // 0: QR_CODE, 1: BARCODE
           };
           
           await html5QrCode.start(
             { facingMode: "environment" },
             config,
             (decodedText, decodedResult) => {
-              // QR detectado
+              // Determinar el tipo de código
+              const type = decodedResult.result.format.formatName.includes('QR') ? 'QR' : 'Código de barras';
+              
               if (debugModeCheckbox.checked) {
-                debugInfo.textContent = `QR detectado: ${decodedText.substring(0, 20)}...`;
+                debugInfo.textContent = `${type} detectado: ${decodedText.substring(0, 20)}...`;
               }
-              handleScannedCode(decodedText, 'QR');
+              
+              // Solo procesar si coincide con el tipo de escáner seleccionado
+              if (type === 'QR' && getScannerType() !== 'barcode') {
+                handleScannedCode(decodedText, 'QR');
+              } else if (type === 'Código de barras' && getScannerType() !== 'qr') {
+                handleScannedCode(decodedText, 'Código de barras');
+              }
             },
             (errorMessage) => {
               // Error continuo (no crítico)
@@ -627,9 +731,9 @@
               }
             }
           ).then(() => {
-            scanFeedback.textContent = "🎯 Apunta al QR con la cámara";
+            scanFeedback.textContent = "🎯 Apunta al código con la cámara";
           }).catch(err => {
-            showStatus(`Error al iniciar escáner QR: ${err}`, 'error');
+            showStatus(`Error al iniciar escáner: ${err}`, 'error');
             console.error("Error al iniciar html5-qrcode:", err);
           });
         }
@@ -832,7 +936,7 @@
       }
     });
     
-    barcodeHalfSampleCheckbox.addEventListener('change', function() {
+    barcodeMultiFormatCheckbox.addEventListener('change', function() {
       if (quaggaInitialized) {
         stopQuagga();
         initQuagga();
