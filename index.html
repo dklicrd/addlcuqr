@@ -250,6 +250,39 @@
       border-color: #007cba;
       background-color: #f0f8ff;
     }
+    .tips {
+      background-color: #d1ecf1;
+      padding: 15px;
+      border-radius: 5px;
+      margin: 10px 0;
+      font-size: 14px;
+      color: #0c5460;
+    }
+    .tips h4 {
+      margin-top: 0;
+      color: #0c5460;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .tips ul {
+      margin: 10px 0;
+      padding-left: 20px;
+    }
+    .tips li {
+      margin: 5px 0;
+    }
+    .advanced-options {
+      background-color: #fff3cd;
+      padding: 10px;
+      border-radius: 5px;
+      margin: 10px 0;
+      border: 1px solid #ffeaa7;
+    }
+    .advanced-options h4 {
+      margin-top: 0;
+      color: #856404;
+    }
     @keyframes scanLine {
       0% { top: 0; }
       100% { top: 100%; }
@@ -261,6 +294,8 @@
   <script src="https://cdn.jsdelivr.net/npm/quagga@0.12.1/dist/quagga.min.js"></script>
   <!-- Librería ZXing como alternativa -->
   <script src="https://unpkg.com/@zxing/library@latest/umd/index.min.js"></script>
+  <!-- Librería Tesseract OCR -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
 </head>
 <body>
   <div class="container">
@@ -320,17 +355,40 @@
       <label><input type="checkbox" id="barcodeMultiLibrary" checked> Múltiples librerías (Quagga + ZXing)</label>
       <label><input type="checkbox" id="barcodeEnhance" checked> Modo de alta precisión</label>
       <label><input type="checkbox" id="barcodeTryHarder" checked> Intentos múltiples</label>
+      <label><input type="checkbox" id="barcodeOCR" checked> Usar OCR como respaldo</label>
       <label><input type="checkbox" id="barcodeDebug"> Modo depuración</label>
+    </div>
+
+    <!-- TIPS PARA ESCANEAR -->
+    <div class="tips">
+      <h4>💡 Tips para escanear códigos difíciles:</h4>
+      <ul>
+        <li><strong>Iluminación:</strong> Asegura buena luz sin reflejos ni sombras</li>
+        <li><strong>Distancia:</strong> Mantén la cámara a 15-20cm del código</li>
+        <li><strong>Estabilidad:</strong> Mantén la cámara firme, evita movimientos</li>
+        <li><strong>Ángulo:</strong> Intenta diferentes ángulos (90° es ideal)</li>
+        <li><strong>Enfoque:</strong> Toca la pantalla para enfocar si es necesario</li>
+        <li><strong>Alternativa:</strong> Si la cámara no funciona, sube una imagen clara</li>
+      </ul>
     </div>
 
     <!-- OPCIÓN PARA SUBIR IMAGEN -->
     <div class="file-upload">
       <label for="fileInput">
-        <strong>📁 O sube una imagen del código</strong>
+        <strong>📁 Subir imagen del código</strong>
         <input type="file" id="fileInput" accept="image/*" style="display: none;">
       </label>
       <p style="margin: 5px 0; font-size: 12px; color: #666;">
-        Si la cámara no detecta el código, prueba subiendo una imagen
+        Si la cámara no detecta el código, sube una imagen nítida y bien iluminada
+      </p>
+    </div>
+
+    <!-- OPCIONES AVANZADAS -->
+    <div class="advanced-options">
+      <h4>⚙️ Opciones avanzadas para códigos difíciles:</h4>
+      <p style="margin: 5px 0; font-size: 13px; color: #856404;">
+        Si tienes problemas con códigos específicos, activa todas las opciones de "Alta precisión" 
+        y "Múltiples librerías". El sistema probará diferentes técnicas automáticamente.
       </p>
     </div>
 
@@ -416,6 +474,7 @@
     const barcodeMultiLibraryCheckbox = document.getElementById('barcodeMultiLibrary');
     const barcodeEnhanceCheckbox = document.getElementById('barcodeEnhance');
     const barcodeTryHarderCheckbox = document.getElementById('barcodeTryHarder');
+    const barcodeOCRCheckbox = document.getElementById('barcodeOCR');
     const barcodeDebugCheckbox = document.getElementById('barcodeDebug');
 
     let stream = null;
@@ -423,7 +482,7 @@
     let currentQRData = '';
     let quaggaInitialized = false;
     let lastScanTime = 0;
-    const SCAN_COOLDOWN = 1000; // 1 segundo entre escaneos para evitar duplicados
+    const SCAN_COOLDOWN = 1000;
     let frameCount = 0;
     let html5QrCode = null;
     let redirectTimer = null;
@@ -449,8 +508,8 @@
       return 'both';
     }
 
-    // Función para preprocesar imagen para códigos de barras
-    function preprocessImageForBarcode(imageData) {
+    // Función para preprocesar imagen con técnicas avanzadas
+    function preprocessImageAdvanced(imageData) {
       const data = imageData.data;
       const width = imageData.width;
       const height = imageData.height;
@@ -463,47 +522,106 @@
         data[i + 2] = gray;
       }
       
-      // Mejorar contraste para códigos de barras
       if (barcodeEnhanceCheckbox.checked) {
-        // Aplicar múltiples técnicas de mejora
-        
-        // 1. Ecualización de histograma
-        const histogram = new Array(256).fill(0);
-        for (let i = 0; i < data.length; i += 4) {
-          histogram[data[i]]++;
+        // 1. Reducción de ruido con filtro de mediana
+        const medianData = new Uint8ClampedArray(data);
+        for (let y = 1; y < height - 1; y++) {
+          for (let x = 1; x < width - 1; x++) {
+            const idx = (y * width + x) * 4;
+            const neighbors = [];
+            for (let dy = -1; dy <= 1; dy++) {
+              for (let dx = -1; dx <= 1; dx++) {
+                const nIdx = ((y + dy) * width + (x + dx)) * 4;
+                neighbors.push(data[nIdx]);
+              }
+            }
+            neighbors.sort((a, b) => a - b);
+            medianData[idx] = neighbors[4]; // Mediana de 9 valores
+            medianData[idx + 1] = neighbors[4];
+            medianData[idx + 2] = neighbors[4];
+          }
         }
         
-        // 2. Calcular LUT (Look-Up Table)
-        const lut = new Array(256);
-        const cdf = new Array(256);
-        cdf[0] = histogram[0];
-        for (let i = 1; i < 256; i++) {
-          cdf[i] = cdf[i-1] + histogram[i];
+        // Copiar datos procesados
+        for (let i = 0; i < data.length; i++) {
+          data[i] = medianData[i];
         }
         
-        const cdfMin = cdf.find(val => val > 0);
-        const pixelCount = width * height;
-        const alpha = 255 / (pixelCount - cdfMin);
-        
-        for (let i = 0; i < 256; i++) {
-          lut[i] = Math.round(((cdf[i] - cdfMin) * alpha));
+        // 2. Ecualización de histograma adaptativa
+        const blockSize = 64;
+        for (let y = 0; y < height; y += blockSize) {
+          for (let x = 0; x < width; x += blockSize) {
+            const blockWidth = Math.min(blockSize, width - x);
+            const blockHeight = Math.min(blockSize, height - y);
+            
+            // Calcular histograma del bloque
+            const histogram = new Array(256).fill(0);
+            for (let by = y; by < y + blockHeight; by++) {
+              for (let bx = x; bx < x + blockWidth; bx++) {
+                const idx = (by * width + bx) * 4;
+                histogram[data[idx]]++;
+              }
+            }
+            
+            // Calcular LUT para este bloque
+            const lut = new Array(256);
+            const cdf = new Array(256);
+            cdf[0] = histogram[0];
+            for (let i = 1; i < 256; i++) {
+              cdf[i] = cdf[i-1] + histogram[i];
+            }
+            
+            const cdfMin = cdf.find(val => val > 0) || 1;
+            const pixelCount = blockWidth * blockHeight;
+            const alpha = 255 / (pixelCount - cdfMin);
+            
+            for (let i = 0; i < 256; i++) {
+              if (cdf[i] >= cdfMin) {
+                lut[i] = Math.round(((cdf[i] - cdfMin) * alpha));
+              } else {
+                lut[i] = 0;
+              }
+            }
+            
+            // Aplicar LUT al bloque
+            for (let by = y; by < y + blockHeight; by++) {
+              for (let bx = x; bx < x + blockWidth; bx++) {
+                const idx = (by * width + bx) * 4;
+                data[idx] = lut[data[idx]];
+                data[idx + 1] = lut[data[idx + 1]];
+                data[idx + 2] = lut[data[idx + 2]];
+              }
+            }
+          }
         }
         
-        // 3. Aplicar LUT
-        for (let i = 0; i < data.length; i += 4) {
-          data[i] = lut[data[i]];
-          data[i + 1] = lut[data[i + 1]];
-          data[i + 2] = lut[data[i + 2]];
-        }
-        
-        // 4. Aplicar umbral adaptativo
-        for (let i = 0; i < data.length; i += 4) {
-          const value = data[i];
-          // Umbral más agresivo
-          const enhanced = value > 120 ? 255 : 0;
-          data[i] = enhanced;
-          data[i + 1] = enhanced;
-          data[i + 2] = enhanced;
+        // 3. Binarización con umbral adaptativo local
+        for (let y = 0; y < height; y++) {
+          for (let x = 0; x < width; x++) {
+            const idx = (y * width + x) * 4;
+            
+            // Calcular umbral local
+            let sum = 0;
+            let count = 0;
+            const windowSize = 15;
+            
+            for (let dy = -windowSize; dy <= windowSize; dy++) {
+              for (let dx = -windowSize; dx <= windowSize; dx++) {
+                const ny = Math.min(Math.max(y + dy, 0), height - 1);
+                const nx = Math.min(Math.max(x + dx, 0), width - 1);
+                const nIdx = (ny * width + nx) * 4;
+                sum += data[nIdx];
+                count++;
+              }
+            }
+            
+            const localThreshold = (sum / count) * 0.85; // 85% del promedio local
+            const value = data[idx];
+            const enhanced = value > localThreshold ? 255 : 0;
+            data[idx] = enhanced;
+            data[idx + 1] = enhanced;
+            data[idx + 2] = enhanced;
+          }
         }
       }
       
@@ -517,20 +635,18 @@
       }
       
       try {
-        // Crear un canvas temporal
         const tempCanvas = document.createElement('canvas');
         tempCanvas.width = imageData.width;
         tempCanvas.height = imageData.height;
         const tempCtx = tempCanvas.getContext('2d');
         tempCtx.putImageData(imageData, 0, 0);
         
-        // Crear luminance source
         const luminanceSource = new ZXing.HTMLCanvasElementLuminanceSource(tempCanvas);
         const binaryBitmap = new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(luminanceSource));
         
-        // Configurar hints
         const hints = new Map();
         hints.set(ZXing.DecodeHintType.TRY_HARDER, barcodeTryHarderCheckbox.checked);
+        hints.set(ZXing.DecodeHintType.PURE_BARCODE, false);
         hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
           ZXing.BarcodeFormat.CODE_128,
           ZXing.BarcodeFormat.CODE_39,
@@ -543,19 +659,46 @@
           ZXing.BarcodeFormat.CODABAR
         ]);
         
-        // Intentar decodificar
         const result = await zxingCodeReader.decodeBitmap(binaryBitmap, hints);
         return result ? result.text : null;
       } catch (err) {
-        if (barcodeDebugCheckbox.checked) {
-          console.log('ZXing error:', err.message);
-        }
         return null;
       }
     }
 
-    // Función para escanear códigos de barras con múltiples librerías
-    async function scanBarcodeWithMultipleLibraries() {
+    // Función para escanear con OCR como alternativa
+    async function scanWithOCR(imageData) {
+      if (!barcodeOCRCheckbox.checked) return null;
+      
+      try {
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = imageData.width;
+        tempCanvas.height = imageData.height;
+        const tempCtx = tempCanvas.getContext('2d');
+        tempCtx.putImageData(imageData, 0, 0);
+        
+        const imageUrl = tempCanvas.toDataURL();
+        
+        const worker = await Tesseract.createWorker('eng');
+        const { data: { text } } = await worker.recognize(imageUrl);
+        await worker.terminate();
+        
+        // Buscar patrones de códigos de barras en el texto
+        const barcodePattern = /\b\d{8,14}\b/g;
+        const matches = text.match(barcodePattern);
+        
+        if (matches && matches.length > 0) {
+          return matches[0]; // Devolver el primer código encontrado
+        }
+        
+        return null;
+      } catch (err) {
+        return null;
+      }
+    }
+
+    // Función para escanear con múltiples métodos
+    async function scanWithMultipleMethods() {
       if (!scanning || getScannerType() === 'qr' || !video || video.readyState !== video.HAVE_ENOUGH_DATA) return;
       
       frameCount++;
@@ -566,16 +709,15 @@
         canvasContext.drawImage(video, 0, 0, canvas.width, canvas.height);
         
         const imageData = canvasContext.getImageData(0, 0, canvas.width, canvas.height);
-        const processedImageData = preprocessImageForBarcode(imageData);
+        const processedImageData = preprocessImageAdvanced(imageData);
         
-        // Mostrar información de depuración
         if (barcodeDebugCheckbox.checked && frameCount % 30 === 0) {
-          debugInfo.textContent = `Frame ${frameCount}: Probando múltiples librerías...`;
+          debugInfo.textContent = `Frame ${frameCount}: Probando múltiples métodos...`;
         }
         
         let result = null;
         
-        // 1. Intentar con ZXing si está activado
+        // Método 1: ZXing
         if (barcodeMultiLibraryCheckbox.checked) {
           result = await scanWithZXing(processedImageData);
           if (result) {
@@ -587,33 +729,15 @@
           }
         }
         
-        // 2. Intentar con html5-qrcode desde canvas
-        if (html5QrCode && html5QrCode.isScanning) {
-          try {
-            const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = processedImageData.width;
-            tempCanvas.height = processedImageData.height;
-            const tempCtx = tempCanvas.getContext('2d');
-            tempCtx.putImageData(processedImageData, 0, 0);
-            
-            const img = new Image();
-            img.onload = function() {
-              Html5Qrcode.scanFile(img, true)
-                .then(decodedText => {
-                  if (decodedText && getScannerType() !== 'qr') {
-                    if (barcodeDebugCheckbox.checked) {
-                      debugInfo.textContent = `html5-qrcode detectó: ${decodedText}`;
-                    }
-                    handleScannedCode(decodedText, 'Código de barras');
-                  }
-                })
-                .catch(err => {
-                  // Silenciar errores
-                });
-            };
-            img.src = tempCanvas.toDataURL();
-          } catch (err) {
-            // Silenciar errores
+        // Método 2: OCR como último recurso
+        if (barcodeOCRCheckbox.checked) {
+          result = await scanWithOCR(processedImageData);
+          if (result) {
+            if (barcodeDebugCheckbox.checked) {
+              debugInfo.textContent = `OCR detectó: ${result}`;
+            }
+            handleScannedCode(result, 'Código de barras (OCR)');
+            return;
           }
         }
         
@@ -626,10 +750,9 @@
 
     // Función para escanear imagen subida
     async function scanUploadedFile(file) {
-      showStatus('Procesando imagen...', 'info');
+      showStatus('Procesando imagen con múltiples métodos...', 'info');
       
       try {
-        // Crear un ImageReader
         const reader = new FileReader();
         reader.onload = async function(e) {
           const img = new Image();
@@ -639,7 +762,7 @@
             canvasContext.drawImage(img, 0, 0);
             
             const imageData = canvasContext.getImageData(0, 0, canvas.width, canvas.height);
-            const processedImageData = preprocessImageForBarcode(imageData);
+            const processedImageData = preprocessImageAdvanced(imageData);
             
             // Intentar con html5-qrcode primero
             try {
@@ -662,7 +785,16 @@
               }
             }
             
-            showStatus('No se pudo detectar ningún código en la imagen', 'warning');
+            // Intentar con OCR
+            if (barcodeOCRCheckbox.checked) {
+              const ocrResult = await scanWithOCR(processedImageData);
+              if (ocrResult) {
+                handleScannedCode(ocrResult, 'Código de barras (OCR)');
+                return;
+              }
+            }
+            
+            showStatus('No se pudo detectar ningún código. Intenta con una imagen más clara o mejor iluminada.', 'warning');
           };
           img.src = e.target.result;
         };
@@ -672,7 +804,7 @@
       }
     }
 
-    // Inicializar Quagga para códigos de barras
+    // Inicializar Quagga
     function initQuagga() {
       if (quaggaInitialized) return;
       
@@ -684,11 +816,13 @@
           constraints: {
             facingMode: "environment",
             width: { min: 640, ideal: 1280 },
-            height: { min: 480, ideal: 720 }
+            height: { min: 480, ideal: 720 },
+            focusMode: "continuous",
+            exposureMode: "auto"
           }
         },
         locator: {
-          patchSize: barcodeEnhanceCheckbox.checked ? "x-large" : "large",
+          patchSize: "x-large",
           halfSample: false,
           debug: {
             showCanvas: barcodeDebugCheckbox.checked,
@@ -706,7 +840,7 @@
           }
         },
         numOfWorkers: navigator.hardwareConcurrency || 4,
-        frequency: barcodeTryHarderCheckbox.checked ? 2 : 5,
+        frequency: 2,
         decoder: {
           readers: [
             "code_128_reader",
@@ -740,10 +874,8 @@
         quaggaInitialized = true;
         Quagga.start();
         
-        // Iniciar escaneo adicional si está activado
-        if (barcodeMultiLibraryCheckbox.checked || barcodeEnhanceCheckbox.checked) {
-          setInterval(scanBarcodeWithMultipleLibraries, 400);
-        }
+        // Iniciar escaneo adicional
+        setInterval(scanWithMultipleMethods, 500);
       });
 
       Quagga.onProcessed(function(result) {
@@ -765,7 +897,7 @@
           }
           
           if (result.codeResult && result.codeResult.code) {
-            Quagga.ImageDebug.drawPath(result.line, {x: 'x', y: 'y'}, drawingCtx, {color: 'red', lineWidth: 3});
+            Quagga.ImageDebug.drawPath(result.line, {x: 'x', y: 'y'}, drawingCtx, {color: 'red', linewidth: 3});
           }
         }
       });
@@ -855,7 +987,7 @@
               const type = format.includes('QR') ? 'QR' : 'Código de barras';
               
               if (debugModeCheckbox.checked) {
-                debugInfo.textContent = `${type} detectado: ${decodedText.substring(0, 20)}...`;
+                debugInfo.textContent = `${type}: ${decodedText.substring(0, 20)}...`;
               }
               
               if (type === 'QR' && getScannerType() !== 'barcode') {
@@ -914,7 +1046,7 @@
       stopQuagga();
     }
 
-    // Función para mostrar resultado del QR
+    // Función para mostrar resultado
     function showQRResult(data, type) {
       qrDataDiv.innerHTML = `<strong>Tipo:</strong> ${type}<br><strong>Datos:</strong> ${data}`;
       resultDiv.classList.remove('hidden');
@@ -1058,27 +1190,6 @@
           stopQuagga();
           initQuagga();
         }
-      }
-    });
-    
-    barcodeMultiLibraryCheckbox.addEventListener('change', function() {
-      if (quaggaInitialized) {
-        stopQuagga();
-        initQuagga();
-      }
-    });
-    
-    barcodeEnhanceCheckbox.addEventListener('change', function() {
-      if (quaggaInitialized) {
-        stopQuagga();
-        initQuagga();
-      }
-    });
-    
-    barcodeTryHarderCheckbox.addEventListener('change', function() {
-      if (quaggaInitialized) {
-        stopQuagga();
-        initQuagga();
       }
     });
   </script>
