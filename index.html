@@ -245,8 +245,8 @@
   </style>
   <!-- Librería que funciona para QR -->
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-  <!-- Librería ZXing para códigos de barras (más robusta) -->
-  <script src="https://unpkg.com/@zxing/library@latest/umd/index.min.js"></script>
+  <!-- Librería para códigos de barras -->
+  <script src="https://cdn.jsdelivr.net/npm/quagga@0.12.1/dist/quagga.min.js"></script>
 </head>
 <body>
   <div class="container">
@@ -303,8 +303,8 @@
     <!-- OPCIONES AVANZADAS DE ESCÁNEO DE CÓDIGOS DE BARRAS -->
     <div class="barcode-options">
       <strong>Opciones avanzadas de códigos de barras:</strong>
-      <label><input type="checkbox" id="barcodeEnhance" checked> Modo de alta precisión ZXing</label>
-      <label><input type="checkbox" id="barcodeMultiScan" checked> Múltiples intentos</label>
+      <label><input type="checkbox" id="barcodeEnhance" checked> Modo de alta precisión</label>
+      <label><input type="checkbox" id="barcodeTryHarder" checked> Intentos múltiples</label>
       <label><input type="checkbox" id="barcodeDebug"> Modo depuración</label>
     </div>
 
@@ -387,16 +387,18 @@
     
     // Opciones de códigos de barras
     const barcodeEnhanceCheckbox = document.getElementById('barcodeEnhance');
-    const barcodeMultiScanCheckbox = document.getElementById('barcodeMultiScan');
+    const barcodeTryHarderCheckbox = document.getElementById('barcodeTryHarder');
     const barcodeDebugCheckbox = document.getElementById('barcodeDebug');
 
     let stream = null;
     let scanning = false;
     let currentQRData = '';
+    let quaggaInitialized = false;
+    let lastScanTime = 0;
+    const SCAN_COOLDOWN = 1000; // 1 segundo entre escaneos para evitar duplicados
+    let frameCount = 0;
     let html5QrCode = null;
     let redirectTimer = null;
-    let barcodeScanInterval = null;
-    let codeReader = null;
 
     // Función para mostrar mensajes de estado
     function showStatus(message, type = 'info') {
@@ -419,10 +421,15 @@
     }
 
     // Función para preprocesar imagen para códigos de barras
-    function preprocessImageForBarcode(imageData) {
+    function preprocessImageForBarcode() {
+      if (!video || video.readyState !== video.HAVE_ENOUGH_DATA) return null;
+      
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      canvasContext.drawImage(video, 0, 0, canvas.width, canvas.height);
+      
+      const imageData = canvasContext.getImageData(0, 0, canvas.width, canvas.height);
       const data = imageData.data;
-      const width = imageData.width;
-      const height = imageData.height;
       
       // Convertir a escala de grises
       for (let i = 0; i < data.length; i += 4) {
@@ -434,105 +441,189 @@
       
       // Mejorar contraste para códigos de barras
       if (barcodeEnhanceCheckbox.checked) {
-        // Calcular histograma
-        const histogram = new Array(256).fill(0);
+        // Aplicar umbral adaptativo
         for (let i = 0; i < data.length; i += 4) {
-          histogram[data[i]]++;
-        }
-        
-        // Encontrar umbral óptimo usando el método de Otsu
-        let sum = 0;
-        for (let i = 0; i < 256; i++) {
-          sum += i * histogram[i];
-        }
-        
-        let sumB = 0;
-        let wB = 0;
-        let wF = 0;
-        let maxVariance = 0;
-        let threshold = 0;
-        
-        for (let i = 0; i < 256; i++) {
-          wB += histogram[i];
-          if (wB === 0) continue;
-          
-          wF = width * height - wB;
-          if (wF === 0) break;
-          
-          sumB += i * histogram[i];
-          const mB = sumB / wB;
-          const mF = (sum - sumB) / wF;
-          
-          const variance = wB * wF * (mB - mF) * (mB - mF);
-          
-          if (variance > maxVariance) {
-            maxVariance = variance;
-            threshold = i;
-          }
-        }
-        
-        // Aplicar umbral
-        for (let i = 0; i < data.length; i += 4) {
-          const value = data[i] > threshold ? 255 : 0;
-          data[i] = value;
-          data[i + 1] = value;
-          data[i + 2] = value;
+          const value = data[i];
+          // Umbral más agresivo para códigos de barras
+          const enhanced = value > 140 ? 255 : 0;
+          data[i] = enhanced;
+          data[i + 1] = enhanced;
+          data[i + 2] = enhanced;
         }
       }
       
       return imageData;
     }
 
-    // Función para escanear códigos de barras con ZXing
-    async function scanBarcodeWithZXing() {
-      if (!scanning || getScannerType() === 'qr' || !video || video.readyState !== video.HAVE_ENOUGH_DATA) return;
+    // Función para escanear códigos de barras con canvas adicional
+    function scanBarcodeWithCanvas() {
+      if (!scanning || getScannerType() === 'qr') return;
       
-      try {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        canvasContext.drawImage(video, 0, 0, canvas.width, canvas.height);
-        
-        const imageData = canvasContext.getImageData(0, 0, canvas.width, canvas.height);
-        const processedImageData = preprocessImageForBarcode(imageData);
-        
-        // Crear un ImageData para ZXing
-        const luminanceSource = new ZXing.HTMLCanvasElementLuminanceSource(canvas);
-        const binaryBitmap = new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(luminanceSource));
-        
-        // Intentar leer con múltiples formatos
-        const formats = [
-          ZXing.BarcodeFormat.CODE_128,
-          ZXing.BarcodeFormat.CODE_39,
-          ZXing.BarcodeFormat.EAN_13,
-          ZXing.BarcodeFormat.EAN_8,
-          ZXing.BarcodeFormat.UPC_A,
-          ZXing.BarcodeFormat.UPC_E,
-          ZXing.BarcodeFormat.CODE_93,
-          ZXing.BarcodeFormat.CODE_32,
-          ZXing.BarcodeFormat.ITF,
-          ZXing.BarcodeFormat.CODABAR
-        ];
-        
-        const hints = new Map();
-        hints.set(ZXing.DecodeHintType.TRY_HARDER, barcodeEnhanceCheckbox.checked);
-        hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, formats);
-        
-        if (barcodeMultiScanCheckbox.checked) {
-          hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+      const imageData = preprocessImageForBarcode();
+      if (!imageData) return;
+      
+      frameCount++;
+      
+      // Mostrar información de depuración
+      if (barcodeDebugCheckbox.checked && frameCount % 30 === 0) {
+        debugInfo.textContent = `Procesando frame ${frameCount} para códigos de barras...`;
+      }
+      
+      // Crear un canvas temporal para el escaneo
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = imageData.width;
+      tempCanvas.height = imageData.height;
+      const tempCtx = tempCanvas.getContext('2d');
+      tempCtx.putImageData(imageData, 0, 0);
+      
+      // Intentar escanear con html5-qrcode desde el canvas
+      if (html5QrCode && html5QrCode.isScanning) {
+        try {
+          // Crear una imagen desde el canvas
+          const img = new Image();
+          img.onload = function() {
+            // Intentar escanear la imagen
+            Html5Qrcode.scanFile(img, true)
+              .then(decodedText => {
+                if (decodedText && getScannerType() !== 'qr') {
+                  if (barcodeDebugCheckbox.checked) {
+                    debugInfo.textContent = `Código detectado con canvas: ${decodedText}`;
+                  }
+                  handleScannedCode(decodedText, 'Código de barras');
+                }
+              })
+              .catch(err => {
+                // Silenciar errores para no inundar la consola
+              });
+          };
+          img.src = tempCanvas.toDataURL();
+        } catch (err) {
+          // Silenciar errores
         }
-        
-        const result = await codeReader.decodeBitmap(binaryBitmap, hints);
-        
-        if (result && result.text) {
-          if (barcodeDebugCheckbox.checked) {
-            debugInfo.textContent = `Código detectado con ZXing: ${result.text}`;
+      }
+    }
+
+    // Inicializar Quagga para códigos de barras con configuración mejorada
+    function initQuagga() {
+      if (quaggaInitialized) return;
+      
+      // Configuración optimizada para códigos de barras
+      const config = {
+        inputStream: {
+          name: "Live",
+          type: "LiveStream",
+          target: video,
+          constraints: {
+            facingMode: "environment",
+            width: { min: 640, ideal: 1280 },
+            height: { min: 480, ideal: 720 }
           }
-          handleScannedCode(result.text, 'Código de barras');
+        },
+        locator: {
+          patchSize: barcodeEnhanceCheckbox.checked ? "x-large" : "large",
+          halfSample: false, // Desactivado para mayor precisión
+          debug: {
+            showCanvas: barcodeDebugCheckbox.checked,
+            showPatches: barcodeDebugCheckbox.checked,
+            showFoundPatches: barcodeDebugCheckbox.checked,
+            showSkeleton: barcodeDebugCheckbox.checked,
+            showLabels: barcodeDebugCheckbox.checked,
+            showPatchLabels: barcodeDebugCheckbox.checked,
+            showRemainingPatchLabels: barcodeDebugCheckbox.checked,
+            boxFromPatches: {
+              showTransformed: barcodeDebugCheckbox.checked,
+              showTransformedBox: barcodeDebugCheckbox.checked,
+              showBB: barcodeDebugCheckbox.checked
+            }
+          }
+        },
+        numOfWorkers: navigator.hardwareConcurrency || 4,
+        frequency: barcodeTryHarderCheckbox.checked ? 3 : 5, // Más frecuente si está activado
+        decoder: {
+          readers: [
+            "code_128_reader",
+            "ean_reader",
+            "ean_8_reader",
+            "code_39_reader",
+            "code_39_vin_reader",
+            "codabar_reader",
+            "upc_reader",
+            "upc_e_reader",
+            "i2of5_reader",
+            "2of5_reader",
+            "code_93_reader",
+            "code_32_reader"
+          ],
+          debug: {
+            drawBoundingBox: barcodeDebugCheckbox.checked,
+            showFrequency: barcodeDebugCheckbox.checked,
+            drawScanline: barcodeDebugCheckbox.checked,
+            showPattern: barcodeDebugCheckbox.checked
+          }
+        },
+        locate: true
+      };
+      
+      Quagga.init(config, function(err) {
+        if (err) {
+          console.log('Quagga initialization error:', err);
+          showStatus('Error al inicializar escáner de códigos de barras: ' + err.message, 'error');
+          return;
         }
-      } catch (err) {
-        // Silenciar errores para no inundar la consola
-        if (barcodeDebugCheckbox.checked && err.name !== 'NotFoundException') {
-          debugInfo.textContent = `Error ZXing: ${err.message}`;
+        quaggaInitialized = true;
+        Quagga.start();
+        
+        // Iniciar escaneo adicional con canvas si está activado
+        if (barcodeEnhanceCheckbox.checked) {
+          setInterval(scanBarcodeWithCanvas, 500);
+        }
+      });
+
+      Quagga.onProcessed(function(result) {
+        if (barcodeDebugCheckbox.checked && result) {
+          const drawingCtx = Quagga.canvas.ctx.overlay;
+          const canvas = Quagga.canvas.dom.overlay;
+          
+          if (result.boxes) {
+            drawingCtx.clearRect(0, 0, canvas.width, canvas.height);
+            result.boxes.filter(function (box) {
+              return box !== result.box;
+            }).forEach(function (box) {
+              Quagga.ImageDebug.drawPath(box, {x: 0, y: 1}, drawingCtx, {color: "green", lineWidth: 2});
+            });
+          }
+          
+          if (result.box) {
+            Quagga.ImageDebug.drawPath(result.box, {x: 0, y: 1}, drawingCtx, {color: "blue", lineWidth: 2});
+          }
+          
+          if (result.codeResult && result.codeResult.code) {
+            Quagga.ImageDebug.drawPath(result.line, {x: 'x', y: 'y'}, drawingCtx, {color: 'red', lineWidth: 3});
+          }
+        }
+      });
+
+      Quagga.onDetected(function(result) {
+        const code = result.codeResult.code;
+        if (code && getScannerType() !== 'qr') {
+          if (barcodeDebugCheckbox.checked) {
+            debugInfo.textContent = `Código de barras detectado con Quagga: ${code}`;
+          }
+          handleScannedCode(code, 'Código de barras');
+        }
+      });
+    }
+
+    // Detener Quagga
+    function stopQuagga() {
+      if (quaggaInitialized) {
+        Quagga.stop();
+        quaggaInitialized = false;
+        
+        // Limpiar canvas de depuración si existe
+        const debugCanvas = Quagga.canvas.dom.overlay;
+        if (debugCanvas && debugCanvas.parentNode) {
+          debugCanvas.parentNode.removeChild(debugCanvas);
         }
       }
     }
@@ -628,15 +719,10 @@
         }
         
         if (scannerType !== 'qr') {
-          // Inicializar ZXing para códigos de barras
+          // Inicializar Quagga para códigos de barras
           video.style.display = 'block';
           scanFeedback.textContent = "🎯 Apunta al código de barras con la cámara";
-          
-          // Inicializar ZXing
-          codeReader = new ZXing.BrowserMultiFormatReader();
-          
-          // Iniciar escaneo periódico con ZXing
-          barcodeScanInterval = setInterval(scanBarcodeWithZXing, 300);
+          initQuagga();
         }
         
       } catch (error) {
@@ -655,16 +741,6 @@
         });
       }
       
-      if (barcodeScanInterval) {
-        clearInterval(barcodeScanInterval);
-        barcodeScanInterval = null;
-      }
-      
-      if (codeReader) {
-        codeReader.reset();
-        codeReader = null;
-      }
-      
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
         stream = null;
@@ -677,6 +753,7 @@
       debugInfo.classList.add('hidden');
       video.style.display = 'none';
       hideStatus();
+      stopQuagga();
     }
 
     // Función para mostrar resultado del QR
@@ -816,8 +893,33 @@
     barcodeDebugCheckbox.addEventListener('change', function() {
       if (this.checked && scanning && getScannerType() !== 'qr') {
         debugInfo.classList.remove('hidden');
+        // Reiniciar Quagga para aplicar la configuración de depuración
+        if (quaggaInitialized) {
+          stopQuagga();
+          initQuagga();
+        }
       } else {
         debugInfo.classList.add('hidden');
+        // Reiniciar Quagga para quitar la configuración de depuración
+        if (quaggaInitialized) {
+          stopQuagga();
+          initQuagga();
+        }
+      }
+    });
+    
+    // Event listeners para las opciones de códigos de barras
+    barcodeEnhanceCheckbox.addEventListener('change', function() {
+      if (quaggaInitialized) {
+        stopQuagga();
+        initQuagga();
+      }
+    });
+    
+    barcodeTryHarderCheckbox.addEventListener('change', function() {
+      if (quaggaInitialized) {
+        stopQuagga();
+        initQuagga();
       }
     });
   </script>
